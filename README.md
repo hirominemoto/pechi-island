@@ -3,6 +3,8 @@
 コードだけで描いた3Dの「ペチ島」。ペチ隊長・ヒロミーヌ・ミラ（ロボット）が島をぐるぐる歩き回ります。
 画像ファイルは使っていません。島の形・木・キャラクターはすべて SVG とJavaScriptで描いています。
 
+公開ページ: https://hirominemoto.github.io/pechi-island/
+
 物語: https://note.com/quick_gibbon9234/n/n1272e8d9843b
 
 ## ファイル
