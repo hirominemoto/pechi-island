@@ -1,0 +1,150 @@
+<title>ペチ島</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Zen+Maru+Gothic:wght@500;700&display=swap">
+<style>
+/* 画面いっぱいのジオラマ。左上に手書きの木の看板、左下に登場人物の名札、右下に丸い操作ボタン */
+:root {
+  --sky-top: #4fb2ea;
+  --sky-mid: #b4e4f6;
+  --sky-low: #fff2cc;
+  --wood: #e6c58c;
+  --wood-dark: #7a4f2c;
+  --ink: #3b2a1c;
+  --paint-red: #a83226;
+  --paper: #fffdf4;
+  --font-sign: "Yusei Magic", "Hachi Maru Pop", "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Yu Gothic", "Meiryo", sans-serif;
+  --font-ui: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Yu Gothic", "Meiryo", sans-serif;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: linear-gradient(var(--sky-top), var(--sky-mid) 55%, var(--sky-low));
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-weight: 500;
+}
+.stage { position: relative; height: 100%; min-height: 300px; overflow: hidden; }
+#pechi { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-select: none; }
+
+.sign { position: absolute; left: 16px; top: 14px; transform: rotate(-2deg); transform-origin: left top; pointer-events: none; }
+.plank {
+  background: var(--wood);
+  border: 2px solid var(--wood-dark);
+  border-radius: 6px 9px 7px 10px;
+  box-shadow: 0 3px 0 var(--wood-dark), 0 8px 16px rgba(30, 60, 100, .2);
+  color: var(--ink);
+  font-family: var(--font-sign);
+  font-weight: 400;
+}
+.plank.main { margin: 0; padding: 0 20px 3px; font-size: clamp(28px, 5.2vw, 42px); line-height: 1.3; letter-spacing: .06em; }
+.ropes { display: flex; justify-content: space-around; width: 62%; height: 9px; margin: 3px auto 0; }
+.ropes i { width: 2px; background: var(--wood-dark); }
+.plank.sub { width: max-content; margin: 0 auto; padding: 3px 13px 4px; text-align: center; font-size: clamp(11px, 2vw, 14px); line-height: 1.35; }
+.plank.sub s { text-decoration-color: var(--paint-red); text-decoration-thickness: 2px; }
+.plank.sub b { display: block; color: var(--paint-red); font-weight: 400; font-size: 1.3em; }
+
+.side { position: absolute; right: 16px; top: 16px; max-width: min(46%, 240px); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.story {
+  padding: 4px 12px; border: 2px solid var(--wood-dark); border-radius: 999px;
+  background: var(--paper); color: var(--ink);
+  font-size: 12px; font-weight: 700; text-decoration: none;
+}
+.story:hover { background: var(--wood); }
+.story:focus-visible { outline: 3px solid var(--paper); outline-offset: 2px; }
+.hint {
+  margin: 0; padding: 6px 12px; border-radius: 12px;
+  background: rgba(255, 253, 244, .82); color: var(--ink);
+  font-size: 12px; line-height: 1.5; pointer-events: none;
+  transition: opacity .6s;
+}
+.hint.gone { opacity: 0; }
+
+.cast { position: absolute; left: 16px; bottom: 16px; display: flex; flex-wrap: wrap; gap: 8px; max-width: calc(100% - 92px); }
+.cast button {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 13px 3px 4px; border: 2px solid var(--wood-dark); border-radius: 999px;
+  background: var(--paper); color: var(--ink);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 2px 0 var(--wood-dark);
+}
+.cast button[aria-pressed="true"] { background: var(--wood); }
+.cast button svg { width: 30px; height: 30px; border-radius: 50%; background: var(--sky-mid); flex: none; }
+.cast button:active, .ctrl button:active { transform: translateY(2px); box-shadow: none; }
+
+.ctrl { position: absolute; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+.ctrl button {
+  display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 2px solid var(--wood-dark); border-radius: 50%;
+  background: var(--wood); color: var(--ink); cursor: pointer;
+  box-shadow: 0 2px 0 var(--wood-dark);
+}
+.ctrl button[aria-pressed="true"] { background: var(--paper); }
+.ctrl button:disabled { opacity: .55; cursor: default; }
+.ctrl button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+button:focus-visible { outline: 3px solid var(--paper); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
+</style>
+
+<div class="stage">
+  <svg id="pechi" xmlns="http://www.w3.org/2000/svg" viewBox="-176 -98 352 204" role="img" aria-label="ペチ島のジオラマ。ペチ隊長、ヒロミーヌ、ミラが島をぐるぐる歩いている"><!--__STATIC__--></svg>
+
+  <div class="sign">
+    <h1 class="plank main">ペチ島</h1>
+    <div class="ropes"><i></i><i></i></div>
+    <p class="plank sub"><s>しずかな島</s><b>今日も大騒ぎ</b></p>
+  </div>
+
+  <div class="side">
+    <a class="story" href="https://note.com/quick_gibbon9234/n/n1272e8d9843b" target="_blank" rel="noopener">物語を読む（note）</a>
+    <p class="hint" id="hint">ドラッグで島が回ります。名札を押すとキャラクターを追いかけ、うずまきボタンで台風モードになります。</p>
+  </div>
+
+  <div class="cast" id="cast" aria-label="登場人物"></div>
+
+  <div class="ctrl">
+    <button type="button" id="btn-rot" aria-pressed="true" aria-label="自動で回す" title="自動で回す">
+      <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 3.5V8h-4.5"/></svg>
+    </button>
+    <button type="button" id="btn-storm" aria-label="たいふうモード" title="ヒロミーヌが台風になる">
+      <svg viewBox="0 0 24 24"><path d="M11 12a1 1 0 1 1 2 0a3 3 0 1 1-6 0a5 5 0 1 1 10 0a7 7 0 1 1-14 0"/></svg>
+    </button>
+    <button type="button" id="btn-in" aria-label="拡大" title="拡大"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button type="button" id="btn-out" aria-label="縮小" title="縮小"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+  </div>
+</div>
+
+<script>
+/*__CODE__*/
+(function () {
+  var cast = document.getElementById('cast');
+  var P = Pechi, island = P.mount(document.getElementById('pechi'), { onStorm: function (on) { document.getElementById('btn-storm').disabled = on; }, onFollow: function (name) {
+    Array.prototype.forEach.call(cast.children, function (b) { b.setAttribute('aria-pressed', String(b.id === 'cast-' + name)); });
+  } });
+  window.pechiIsland = island;
+  ['pechi', 'hiro', 'mira'].forEach(function (name) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.id = 'cast-' + name;
+    b.innerHTML = '<svg viewBox="-7.5 -24 15 15" aria-hidden="true">' + P.charMarkup(name, false) + '</svg><span>' + P.NAMES[name] + '</span>';
+    b.setAttribute('aria-pressed', 'false');
+    b.title = P.NAMES[name] + 'を追いかける';
+    b.addEventListener('click', function () { island.follow(b.getAttribute('aria-pressed') === 'true' ? null : name); });
+    cast.appendChild(b);
+  });
+  var rot = document.getElementById('btn-rot');
+  rot.setAttribute('aria-pressed', String(island.cam.auto));
+  rot.addEventListener('click', function () {
+    island.setAuto(!island.cam.auto);
+    rot.setAttribute('aria-pressed', String(island.cam.auto));
+  });
+  document.getElementById('btn-storm').addEventListener('click', function () { island.storm(); });
+  document.getElementById('btn-in').addEventListener('click', function () { island.zoomBy(1.25); });
+  document.getElementById('btn-out').addEventListener('click', function () { island.zoomBy(.8); });
+  var hint = document.getElementById('hint');
+  function hide() { hint.classList.add('gone'); }
+  document.getElementById('pechi').addEventListener('pointerdown', hide, { once: true });
+  setTimeout(hide, 9000);
+})();
+</script>
