@@ -73,8 +73,10 @@ function walkerSamples(sc, R, N) {
 function xy10(p) { return Math.round(p.x * 10) + ' ' + Math.round(p.y * 10); }
 function valuesOf(pts) { return pts.concat([pts[0]]).map(xy10).join(';'); }
 
-P.renderStatic = function (azDeg, elDeg) {
+P.renderStatic = function (azDeg, elDeg, time) {
   var sc = new P.Scene(), R = new P.Renderer(sc), items = sc.items, list = [], defs = '', ins = {}, k;
+  var T = P.TIMES[time] || P.TIMES.day, sea = P.seaColors(T);
+  sc.retone(T);
   R.project(azDeg * DEG, elDeg * DEG); R.sort();
   for (k = 0; k < R.count; k++) {
     var it = items[R.order[k]];
@@ -89,6 +91,8 @@ P.renderStatic = function (azDeg, elDeg) {
     var m = P.signMatrix(R, g);
     if (m) list.push({ key: R.sd[g.kv] + g.kb, bb: NONE, html: '<g transform="' + m + '">' + P.signMarkup(g.id) + '</g>' });
   });
+  var cst = P.caveState(R, sc, T);
+  if (cst.show) list.push({ key: R.sd[sc.cave.kv] + sc.cave.kb, bb: NONE, html: '<g>' + P.caveMarkup(sc, cst) + '</g>' });
   list.forEach(function (e, n) { e.n = n; });
   list.sort(function (a, b) { return a.key - b.key || a.n - b.n; });
   function add(p, html) { ins[p] = (ins[p] || '') + html; }
@@ -97,17 +101,19 @@ P.renderStatic = function (azDeg, elDeg) {
   var N = 184, S = walkerSamples(sc, R, N), lay = layers(list, S.pts, [-8, -25, 8, 2]), values = valuesOf(S.pts);
   var flipRuns = runs(S.flip, '-1 1', '1 1'), frontRuns = runs(S.back, 'none', 'inline'), backRuns = runs(S.back, 'inline', 'none');
   var cast = P.CAST.map(function (c, n) {
-    var begin = f4(-c.off / 360 * P.LOOP - P.LOOP), i0 = Math.floor((((-begin / P.LOOP) % 1) + 1) % 1 * N), T = timing(P.LOOP, begin);
+    var begin = f4(-c.off / 360 * P.LOOP - P.LOOP), i0 = Math.floor((((-begin / P.LOOP) % 1) + 1) % 1 * N), TG = timing(P.LOOP, begin);
     var parts = P.charParts(c.name, true), line = P.LINES[c.name], t0 = .06 + n * .16;
+    parts.f = P.tint(parts.f, T.chr); parts.b = P.tint(parts.b, T.chr);
     function bub(text, a) {
-      return '<g display="none"><animate attributeName="display" calcMode="discrete" ' + T + ' keyTimes="0;' + f4(a) + ';' + f4(a + .075) + '" values="none;inline;none"/>' +
+      return '<g display="none"><animate attributeName="display" calcMode="discrete" ' + TG + ' keyTimes="0;' + f4(a) + ';' + f4(a + .075) + '" values="none;inline;none"/>' +
         '<g transform="translate(0 -25)">' + P.bubble(text) + '</g></g>';
     }
     defs += '<g id="pe-c-' + c.name + '" transform="translate(' + xy10(S.pts[i0]) + ')">' +
-      '<animateTransform attributeName="transform" type="translate" ' + T + ' values="' + values + '"/>' +
+      '<animateTransform attributeName="transform" type="translate" ' + TG + ' values="' + values + '"/>' +
       '<g transform="scale(' + c.size * 10 + ')">' +
+        (T.lamp > 0 ? '<circle cx="0" cy="-11" r="20" fill="url(#g-halo)" opacity="' + Math.round(T.lamp * 62) / 100 + '"/>' : '') +
         '<g' + (S.flip[i0] ? ' transform="scale(-1 1)"' : '') + '>' +
-          (flipRuns.n > 1 ? '<animateTransform attributeName="transform" type="scale" calcMode="discrete" ' + T + ' keyTimes="' + flipRuns.kt + '" values="' + flipRuns.vals + '"/>' : '') +
+          (flipRuns.n > 1 ? '<animateTransform attributeName="transform" type="scale" calcMode="discrete" ' + TG + ' keyTimes="' + flipRuns.kt + '" values="' + flipRuns.vals + '"/>' : '') +
           '<g display="' + (S.back[i0] ? 'none' : 'inline') + '">' + show(frontRuns, P.LOOP, begin) + parts.f + '</g>' +
           '<g display="' + (S.back[i0] ? 'inline' : 'none') + '">' + show(backRuns, P.LOOP, begin) + parts.b + '</g>' +
         '</g>' + bub(line[0], t0) + bub(line[1], t0 + .5) +
@@ -139,7 +145,7 @@ P.renderStatic = function (azDeg, elDeg) {
   }
   var mi = P.MINI, sg = mi.w < 0 ? -1 : 1;
   mover('pe-c-mini', orbit(96, function (a) { a *= sg; return [-7 + mi.r * Math.cos(a), mi.y + 5 * Math.sin(3 * a), -9 + mi.r * Math.sin(a)]; }),
-    [-6, -9, 6, 5], TAU / Math.abs(mi.w), '<g transform="scale(15)">' + P.miniMarkup() + '</g>');
+    [-6, -9, 6, 5], TAU / Math.abs(mi.w), '<g transform="scale(15)">' + P.tint(P.miniMarkup(), T.chr) + '</g>');
   P.CLOUDS.forEach(function (c, n) {
     var dir = c[2] < 0 ? -1 : 1;
     mover('pe-c-cloud' + n, orbit(72, function (a) { a = c[3] + dir * a; return [-7 + c[0] * Math.cos(a), c[1], -9 + c[0] * Math.sin(a)]; }),
@@ -151,12 +157,12 @@ P.renderStatic = function (azDeg, elDeg) {
   P.staticInfo = { faces: R.count, sprites: sc.sprites.length, walkerLayers: lay.pos.length };
 
   var loop = function (pts) { return P.loopD(R, pts); };
-  return '<g id="pe-static"><style>' + P.STYLE + '</style><defs>' + P.defs() + defs + '</defs>' + P.sky() + '<g>' +
+  return '<g id="pe-static"><style>' + P.STYLE + '</style><defs>' + P.defs(T) + defs + '</defs>' + P.sky(T, false, R.se, false) + '<g>' +
     '<path fill="url(#g-wall)" d="' + P.seaWallD(R) + '"/><ellipse cx="0" cy="0" rx="' + P.SEA_R + '" ry="' + P.r1(P.SEA_R * R.se) + '" fill="url(#g-sea)"/>' +
-    '<path fill="#8fe6ea" opacity=".45" d="' + loop(sc.shore(1.14)) + '"/><path fill="#b9f4f2" opacity=".6" d="' + loop(sc.shore(1.05)) + '"/>' +
-    '<path class="glint" fill="none" stroke="#eafcff" stroke-width=".7" stroke-linecap="round" d="' + P.glintD(R, P.makeGlints()) + '"/>' +
-    '<path class="surf" fill="none" stroke="#fff" stroke-width="1" stroke-dasharray="9 7" stroke-linecap="round" d="' + loop(sc.shore(1.05)) + '"/>' +
-    '<path fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round" d="' + loop(sc.shore(1)) + '"/></g>' +
+    '<path fill="' + sea.sh2 + '" opacity=".45" d="' + loop(sc.shore(1.14)) + '"/><path fill="' + sea.sh1 + '" opacity=".6" d="' + loop(sc.shore(1.05)) + '"/>' +
+    '<path class="glint" fill="none" stroke="' + sea.foam + '" stroke-width=".7" stroke-linecap="round" d="' + P.glintD(R, P.makeGlints()) + '"/>' +
+    '<path class="surf" fill="none" stroke="' + sea.foam + '" stroke-width="1" stroke-dasharray="9 7" stroke-linecap="round" d="' + loop(sc.shore(1.05)) + '"/>' +
+    '<path fill="none" stroke="' + sea.foam + '" stroke-width="2.4" stroke-linejoin="round" d="' + loop(sc.shore(1)) + '"/></g>' +
     '<g transform="scale(.1)">' + world + '</g></g>';
 };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

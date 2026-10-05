@@ -36,7 +36,7 @@ fs.writeFileSync(path.join(dir, 'index.html'),
 fs.writeFileSync(path.join(dir, 'pechi-island.svg'),
   '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" id="pechi" viewBox="' + P.VIEW.wide.join(' ') + '">\n' +
   '<title>ペチ島</title>\n<desc>' + desc + '</desc>\n' + stat + '\n<script><![CDATA[\n' + code +
-  '\nPechi.mount(document.documentElement, { webfont: true });\n]]></script>\n</svg>\n');
+  '\nPechi.mount(document.documentElement, { webfont: true, ui: true, time: Pechi.hashTime() });\n]]></script>\n</svg>\n');
 
 fs.mkdirSync(path.join(dir, 'build'), { recursive: true });
 fs.writeFileSync(path.join(dir, 'build', 'artifact.html'), page);

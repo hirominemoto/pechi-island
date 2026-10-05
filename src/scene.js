@@ -44,6 +44,7 @@ var BAND = [
   { c: [228, 202, 148] }                                    // 波打ちぎわ
 ];
 P.TRAIL_D = 0.65;
+P.CAVE_A = 93.75;      // 洞窟の向き(度)。桟橋からまっすぐ山のふもとへ
 var LIGHT = norm([-0.55, 0.72, 0.42]);
 
 // 海岸線の形(角度ごとの半径)
@@ -81,7 +82,8 @@ SP.poly = function (vs, color, o) {
   var lum = o.flat ? 1 : 0.7 + 0.44 * Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
   lum *= 1 + (this.rand() - .5) * (o.vary == null ? .06 : o.vary);
   var it = { t: 0, v: vs, n: n, cull: !!o.cull, kv: o.kv == null ? -1 : o.kv, kb: o.kb || 0,
-    css: hex([color[0] * lum, color[1] * lum, color[2] * lum]) };
+    rgb: [color[0] * lum, color[1] * lum, color[2] * lum], lit: o.lit || 0, emit: o.emit || null, cv: o.cv || 0 };
+  it.css = hex(it.rgb);
   this.items.push(it);
   return it;
 };
@@ -90,7 +92,7 @@ SP.poly = function (vs, color, o) {
 SP.disc = function (x, y, z, r, color, o) {
   o = o || {};
   var v = this.vert(x, y, z);
-  var it = { t: o.ground ? 2 : 1, v: [v], r: r, cull: false, kv: o.kv == null ? v : o.kv, kb: o.kb || 0, css: hex(color) };
+  var it = { t: o.ground ? 2 : 1, v: [v], r: r, cull: false, kv: o.kv == null ? v : o.kv, kb: o.kb || 0, rgb: color, lit: o.lit || 0, emit: o.emit || null, cv: o.cv || 0, css: hex(color) };
   this.items.push(it);
   return it;
 };
@@ -111,17 +113,20 @@ function buildTerrain(sc) {
       sc.vert(-7 * mt + rr * Math.cos(a), hh, -9 * mt + rr * Math.sin(a));
     }
   }
+  var cj = Math.floor(P.CAVE_A / 360 * SECT);
   var idx = sc.vi = function (kk, jj) { return kk === 0 ? 0 : 1 + (kk - 1) * SECT + ((jj % SECT) + SECT) % SECT; };
   for (b = 0; b < RING.length - 1; b++) {
     for (j = 0; j < SECT; j++) {
       var m = BAND[b];
       var col = function () { return (m.mix && R() < m.p) ? m.mix : m.c; };
       var A = idx(b, j), B = idx(b, j + 1), C = idx(b + 1, j + 1), D = idx(b + 1, j);
-      var o = { up: true, cull: true, vary: b === 8 ? .03 : .09 };
-      if (b === 0) sc.poly([A, D, C], col(), o);
-      else if (b >= 6) sc.poly([A, B, C, D], col(), o);
-      else if ((b + j) & 1) { sc.poly([A, B, C], col(), o); sc.poly([A, C, D], col(), o); }
-      else { sc.poly([A, B, D], col(), o); sc.poly([B, C, D], col(), o); }
+      var o = { up: true, cull: true, vary: b === 8 ? .03 : .09 }, cc = col();
+      if ((b === 6 || b === 7) && j === cj) { cc = BAND[8].c; o.vary = .03; }      // 道から洞窟へ入る小道
+      else if (b === 6 && (j === cj - 1 || j === cj + 1)) cc = [200, 188, 138];
+      if (b === 0) sc.poly([A, D, C], cc, o);
+      else if (b >= 6) sc.poly([A, B, C, D], cc, o);
+      else if ((b + j) & 1) { sc.poly([A, B, C], cc, o); sc.poly([A, C, D], col(), o); }
+      else { sc.poly([A, B, D], cc, o); sc.poly([B, C, D], col(), o); }
     }
   }
 }
@@ -141,6 +146,32 @@ SP.pt = function (d, a) {
   return { x: mixv(self.vx), y: mixv(self.vy), z: mixv(self.vz) };
 };
 SP.walk = function (a) { return this.pt(P.TRAIL_D, a); };
+
+// 世界の座標 (x,z) の地面の高さ。メッシュは少しゆがめてあるので、数回の反復で逆算する
+SP.ground = function (x, z) {
+  var a = Math.atan2(z, x), d = Math.hypot(x, z) / P.outline(a), i, p, ca, sa;
+  for (i = 0; i < 6; i++) {
+    d = Math.max(.001, Math.min(.999, d));
+    p = this.pt(d, a); ca = Math.cos(a); sa = Math.sin(a);
+    var ex = x - p.x, ez = z - p.z, ro = P.outline(a);
+    d += (ex * ca + ez * sa) / ro;
+    a += (ez * ca - ex * sa) / Math.max(6, d * ro);
+  }
+  return this.pt(Math.max(.001, Math.min(.999, d)), a).y;
+};
+
+// 時間帯 T の色に塗りなおす。lit=あかりに照らされる面、emit=自分で光る面、cv=洞窟の光を受ける面
+SP.retone = function (T) {
+  var m = T.mul, l = T.lift, items = this.items, i, it, c, r, g, b, k;
+  for (i = 0; i < items.length; i++) {
+    it = items[i]; c = it.rgb;
+    r = c[0] * m[0] + l[0]; g = c[1] * m[1] + l[1]; b = c[2] * m[2] + l[2];
+    if (it.lit) { k = it.lit * T.lamp; r += (c[0] * .94 - r) * k; g += (c[1] * .86 - g) * k; b += (c[2] * .7 - b) * k; }
+    if (it.emit) { k = Math.min(1, T.lamp * 1.15); r += (it.emit[0] - r) * k; g += (it.emit[1] - g) * k; b += (it.emit[2] - b) * k; }
+    if (it.cv) { k = Math.max(0, T.glow - .5) * it.cv; r += (150 - r) * k; g += (214 - g) * k; b += (255 - b) * k; }
+    it.css = hex([r, g, b]);
+  }
+};
 SP.shore = function (scale) {            // 海岸線(泡や浅瀬用)。[x,z] の列
   var out = [], j;
   for (j = 0; j < 96; j++) { var a = j / 96 * TAU, r = P.outline(a) * scale; out.push([r * Math.cos(a), r * Math.sin(a)]); }
