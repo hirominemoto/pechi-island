@@ -92,6 +92,7 @@ P.renderStatic = function (azDeg, elDeg, time) {
     if (m) list.push({ key: R.sd[g.kv] + g.kb, bb: NONE, html: '<g transform="' + m + '">' + P.signMarkup(g.id) + '</g>' });
   });
   var cst = P.caveState(R, sc, T);
+  cst.auto = true;
   if (cst.show) list.push({ key: R.sd[sc.cave.kv] + sc.cave.kb, bb: NONE, html: '<g>' + P.caveMarkup(sc, cst) + '</g>' });
   list.forEach(function (e, n) { e.n = n; });
   list.sort(function (a, b) { return a.key - b.key || a.n - b.n; });

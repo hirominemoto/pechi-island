@@ -122,7 +122,7 @@ function cave(sc, aDeg) {
     sc.poly([fo[i], fo[i + 1], fi[i + 1], fi[i]], i & 1 ? STONE : STONE2, { center: inside, cull: true, kv: kv, kb: 5.06, vary: .1, cv: .8 });
   }
   // 入口の上からたれる岩
-  [[[-3.5, 15.9], [-1.1, 16.7], [-2.5, 12.3]], [[.5, 16.9], [2.7, 16.4], [1.8, 12.9]], [[4.1, 15.6], [6, 13.7], [5.5, 11]]].forEach(function (t) {
+  [[[-3.5, 15.9], [-1.1, 16.7], [-2.5, 13.5]], [[.5, 16.9], [2.7, 16.4], [1.8, 13.9]], [[4.1, 15.6], [6, 13.7], [5.5, 11.6]]].forEach(function (t) {
     sc.poly(t.map(function (q) { return L(sc, f, q[0] * K, y0 + q[1] * K, .15); }), STONE2, { center: inside, cull: true, kv: kv, kb: 5.07, vary: .05, cv: .8 });
   });
   // 入口の両わきの岩
@@ -163,6 +163,7 @@ function cave(sc, aDeg) {
     floor: plane([hw, y0 + .2, -DEPTH], [-hw, y0 + .2, -DEPTH], [hw + 1.6, y0 + .2, 0], 14, 14),           // 床
     spill: plane([10 * K, y0 + .25, .5], [-10 * K, y0 + .25, .5], [10 * K, gOut, 12], 18, 12),              // 入口の外にもれる光
     haze: plane([8.6 * K, y0 + 17 * K, -DEPTH * .45], [-8.6 * K, y0 + 17 * K, -DEPTH * .45], [8.6 * K, y0, -DEPTH * .45], 19, 19),         // 入口いっぱいのもや
+    eyes: L(sc, f, 3.4, y0 + .2, -DEPTH * .6),                                                              // 奥の左の暗がりにいる「何か」
     pile: L(sc, f, 5.3 * K, y0 + .1, -2.4 * K)                                                              // かくしてあるパイナップル
   };
 }

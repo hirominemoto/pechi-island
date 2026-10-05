@@ -20,6 +20,7 @@ P.mount = function (svg, opts) {
   var cam = { az: (opts.az == null ? 20 : opts.az) * DEG, el: 30 * DEG, zoom: 1, cx: null, cy: null, auto: opts.auto !== false && !reduce, speed: .1, follow: null };
   // 時間帯。T はいまの色(切りかえ中は2つの時間帯のあいだ)
   var timeName = P.TIMES[opts.time] ? opts.time : 'day', T = P.TIMES[timeName], fade = null, tall = false;
+  var view = null, avoidPx = [], avoidAt = -9, blinkAt = 2.6;
   sc.retone(T);
 
   // スクリプトなし用の静止画を片づける
@@ -59,7 +60,9 @@ P.mount = function (svg, opts) {
   caveT.el.innerHTML = P.caveMarkup(sc);
   var cv = { open: all(caveT.el, '.cv-open'), walls: all(caveT.el, '.cv-w'), back: caveT.el.querySelector('.cv-b'), amt: caveT.el.querySelector('.cv-amt'),
     mf: caveT.el.querySelector('.cv-mf'), mh: caveT.el.querySelector('.cv-mh'), mb: caveT.el.querySelector('.cv-mb'), ms: caveT.el.querySelector('.cv-ms'),
-    pile: caveT.el.querySelector('.cv-pile'), spill: caveT.el.querySelector('.cv-spill') };
+    pile: caveT.el.querySelector('.cv-pile'), spill: caveT.el.querySelector('.cv-spill'), pulse: caveT.el.querySelector('.cv-glow'),
+    fig: caveT.el.querySelector('.cv-fig'), blink: caveT.el.querySelector('.cv-blink'), halo: caveT.el.querySelector('.cv-halo'),
+    hs: all(caveT.el, '.cv-h'), eye: caveT.el.querySelector('.cv-eye') };
   things.push(caveT);
   var actors = P.CAST.map(function (cst) {
     var e = el('g', { 'class': 'chr' }, world);
@@ -137,6 +140,8 @@ P.mount = function (svg, opts) {
   function paintCave() {
     var a = P.caveAmt(T);
     cv.amt.setAttribute('opacity', a.glow); cv.spill.setAttribute('opacity', a.spill);
+    cv.eye.setAttribute('opacity', a.eye); cv.halo.setAttribute('opacity', a.halo);       // 目は夜ほどはっきり光る
+    cv.hs.forEach(function (h) { h.setAttribute('r', a.haloR); });
   }
   function paintUi() {
     if (ui) P.TIME_ORDER.forEach(function (t) { ui.querySelector('.pe-i-' + t).setAttribute('display', t === timeName ? 'inline' : 'none'); });
@@ -165,8 +170,9 @@ P.mount = function (svg, opts) {
     var cx = v[0] + v[2] / 2 + (cam.cx - v[0] - v[2] / 2) * k, cy = v[1] + v[3] / 2 + (cam.cy - v[1] - v[3] / 2) * k, vw = v[2] / z, vh = v[3] / z;
     svg.setAttribute('viewBox', [cx - vw / 2, cy - vh / 2, vw, vh].map(r1).join(' '));
     if (tall !== wasTall) placeSky();
+    var px = Math.min(w / vw, h / vh);         // 1単位が何ピクセルか
+    view = { l: b.left, t: b.top, w: w, h: h, cx: cx, cy: cy, px: px };
     if (ui) {
-      var px = Math.min(w / vw, h / vh);       // 1単位が何ピクセルか
       ui.setAttribute('transform', 'translate(' + r1(cx + (w / 2 - 38) / px) + ' ' + r1(cy + (h / 2 - 38) / px) + ') scale(' + (1 / px).toFixed(4) + ')');
     }
   }
@@ -210,7 +216,7 @@ P.mount = function (svg, opts) {
       cv.open[0].setAttribute('d', st.open); cv.open[1].setAttribute('d', st.open); cv.back.setAttribute('d', st.back);
       for (k = 0; k < cv.walls.length; k++) cv.walls[k].setAttribute('d', st.walls[k]);
       cv.mf.setAttribute('transform', st.mFloor); cv.mh.setAttribute('transform', st.mHaze); cv.mb.setAttribute('transform', st.mBack); cv.ms.setAttribute('transform', st.mSpill);
-      cv.pile.setAttribute('transform', st.pile);
+      cv.pile.setAttribute('transform', st.pile); cv.fig.setAttribute('transform', st.eyes);
     }
   }
 
@@ -229,12 +235,61 @@ P.mount = function (svg, opts) {
   // ふきだし
   function say(a, text) {
     if (a.bub) { over.removeChild(a.bub.el); a.bub = null; }
-    var lines = P.LINES[a.name];
+    var lines = P.LINES[a.name], n = 0, k;
     text = text || lines[a.line++ % lines.length];
-    var g = el('g', { 'class': 'bub', opacity: 0 }, over);
-    g.innerHTML = P.bubble(text);
-    a.bub = { el: g, until: clock + 3.4 };
-    G.requestAnimationFrame(function () { g.setAttribute('opacity', 1); });
+    for (k = 0; k < text.length; k++) n += text.charCodeAt(k) < 128 ? .5 : 1;
+    var w = Math.round(n * 40 + 56), g = el('g', { 'class': 'bub', opacity: 0 }, over), tail = el('path', { 'class': 'bt' }, g), body = el('g', {}, g);
+    body.innerHTML = '<rect class="bb" x="' + (-w / 2) + '" y="-33" width="' + w + '" height="66" rx="20"/><path class="bc"/>' +
+      '<text class="hand" x="0" y="14" text-anchor="middle" font-size="40" fill="#4a3528">' + text + '</text>';
+    a.bub = { el: g, tail: tail, body: body, cover: body.querySelector('.bc'), w: w / 10, h: 6.6, x: null, y: 0, op: 0, until: clock + 3.4 };
+    avoidAt = -9;
+  }
+  // ふきだしの置き場所。頭の上が基本で、画面のはし・看板・ボタンにかかるときは、かからない所へずらす
+  function bubblePlace(b, ax, ay, fading) {
+    var V = view, hw = b.w / 2, hh = b.h / 2, mg = 7 / V.px, gap = 6 / V.px, k, pass, q, F, c, best, dd;
+    var vl = V.cx - V.w / 2 / V.px, vr = V.cx + V.w / 2 / V.px, vt = V.cy - V.h / 2 / V.px, vb = V.cy + V.h / 2 / V.px;
+    var show = !fading && ax > vl && ax < vr && ay > vt - 4 && ay < vb + 26 ? 1 : 0;      // 本人が画面の外なら出さない
+    if (b.op !== show) { b.op = show; b.el.setAttribute('opacity', show); }
+    if (clock - avoidAt > 1.2) {
+      avoidPx = opts.avoid ? opts.avoid() : [];
+      if (ui) avoidPx.push({ left: V.l + V.w - 122, top: V.t + V.h - 66, right: V.l + V.w, bottom: V.t + V.h });
+      avoidAt = clock;
+    }
+    // (x,y) に置いたとき看板やボタンにかかるなら、かからない所へ押し出す
+    function clear(x, y) {
+      for (pass = 0; pass < 2; pass++) for (k = 0; k < avoidPx.length; k++) {
+        F = avoidPx[k];
+        var fl = V.cx + (F.left - V.l - V.w / 2) / V.px - gap, fr = V.cx + (F.right - V.l - V.w / 2) / V.px + gap;
+        var ft = V.cy + (F.top - V.t - V.h / 2) / V.px - gap, fb = V.cy + (F.bottom - V.t - V.h / 2) / V.px + gap;
+        if (x + hw <= fl || x - hw >= fr || y + hh <= ft || y - hh >= fb) continue;
+        // 下・左・右・上のうち、画面からはみ出さず、いちばん少ない移動ですむ方向へよける
+        c = [[x, fb + hh], [fl - hw, y], [fr + hw, y], [x, ft - hh]]; best = null;
+        for (q = 0; q < 4; q++) {
+          if (c[q][0] - hw < vl + mg - .01 || c[q][0] + hw > vr - mg + .01 || c[q][1] - hh < vt + mg - .01 || c[q][1] + hh > vb - mg + .01) continue;
+          dd = Math.abs(c[q][0] - x) + Math.abs(c[q][1] - y);
+          if (!best || dd < best[2]) best = [c[q][0], c[q][1], dd];
+        }
+        if (best) { x = best[0]; y = best[1]; }
+      }
+      return [x, y];
+    }
+    var to = clear(Math.max(vl + mg + hw, Math.min(vr - mg - hw, ax)), Math.max(vt + mg + hh, Math.min(vb - mg - hh, ay - 2.6 - hh)));
+    // なめらかに動かす。動いている途中でも重ならないよう、もう一度押し出す
+    if (b.x != null) to = clear(b.x + (to[0] - b.x) * .3, b.y + (to[1] - b.y) * .3);
+    b.x = to[0]; b.y = to[1];
+    b.body.setAttribute('transform', 'translate(' + r2(b.x) + ' ' + r2(b.y) + ') scale(.1)');
+    // しっぽは、本体の辺からキャラクターの頭へのばす
+    var L0 = b.x - hw, R0 = b.x + hw, T0 = b.y - hh, B0 = b.y + hh, t, e, d1, d2;
+    if (ay > B0 + .3 || ay < T0 - .3) {
+      t = Math.max(L0 + 3.4, Math.min(R0 - 3.4, ax)); e = ay > B0 ? B0 : T0;
+      d1 = 'M' + r2(t - 1.4) + ' ' + r2(e) + 'L' + r2(ax) + ' ' + r2(ay) + 'L' + r2(t + 1.4) + ' ' + r2(e);
+      d2 = 'M' + r1((t - 1.18 - b.x) * 10) + ' ' + r1((e - b.y) * 10) + 'H' + r1((t + 1.18 - b.x) * 10);
+    } else if (ax < L0 - .3 || ax > R0 + .3) {
+      t = Math.max(T0 + 2.6, Math.min(B0 - 2.6, ay)); e = ax < L0 ? L0 : R0;
+      d1 = 'M' + r2(e) + ' ' + r2(t - .7) + 'L' + r2(ax) + ' ' + r2(ay) + 'L' + r2(e) + ' ' + r2(t + .7);
+      d2 = 'M' + r1((e - b.x) * 10) + ' ' + r1((t - .48 - b.y) * 10) + 'V' + r1((t + .48 - b.y) * 10);
+    } else d1 = d2 = '';
+    b.tail.setAttribute('d', d1); b.cover.setAttribute('d', d2);
   }
   function stormEnd() {
     storm = null;
@@ -279,10 +334,7 @@ P.mount = function (svg, opts) {
       for (j = 0; j < a.bobs.length; j++) a.bobs[j].setAttribute('transform', 'translate(0 ' + r1(-Math.abs(sw) * 1.1) + ')');
       if (a.bub) {
         if (clock > a.bub.until + .4) { over.removeChild(a.bub.el); a.bub = null; }
-        else {
-          if (clock > a.bub.until) a.bub.el.setAttribute('opacity', 0);
-          a.bub.el.setAttribute('transform', 'translate(' + r1(s[0]) + ' ' + r1(s[1] - 25 * a.size) + ')');
-        }
+        else bubblePlace(a.bub, s[0], s[1] - 25 * a.size, clock > a.bub.until);
       }
     }
     // ミラmini は山のまわりを飛ぶ
@@ -312,6 +364,14 @@ P.mount = function (svg, opts) {
     if ((cam.az !== lastAz || cam.el !== lastEl) && (drag || odd || !cam.auto)) { lastAz = cam.az; lastEl = cam.el; camUpdate(); }
     actorUpdate();
     place();
+    if (!reduce) {             // 洞窟の光のゆらぎと、ときどきのゆっくりしたまばたき(閉じる→少し止まる→開く)
+      cv.pulse.setAttribute('opacity', r2(.86 + .14 * Math.sin(clock * 1.9)));
+      if (clock >= blinkAt) {
+        var bt = clock - blinkAt, bu = bt < .34 ? bt / .34 : bt < .48 ? 1 : bt < 1.02 ? 1 - (bt - .48) / .54 : 0;
+        cv.blink.setAttribute('transform', 'scale(1 ' + r2(1 - .94 * bu * bu * (3 - 2 * bu)) + ')');
+        if (bt >= 1.02) blinkAt = clock + 3.2 + Math.random() * 4.2;
+      }
+    }
     if (cam.follow) {            // 名札を押したキャラクターを追いかける
       var f = cam.follow, e = Math.min(1, dt * 3.2);
       cam.cx += (f.x - cam.cx) * e; cam.cy += (f.y - 9 - cam.cy) * e; cam.zoom += (2.7 - cam.zoom) * e;
@@ -355,7 +415,7 @@ P.mount = function (svg, opts) {
   svg.addEventListener('pointerup', up);
   svg.addEventListener('pointercancel', up);
   svg.addEventListener('wheel', function (e) { e.preventDefault(); api.zoomBy(Math.exp(-e.deltaY * .0012)); }, { passive: false });
-  G.addEventListener('resize', fit);
+  G.addEventListener('resize', function () { avoidAt = -9; fit(); });
 
   var api = {
     cam: cam, scene: sc, renderer: R,
@@ -381,6 +441,7 @@ P.mount = function (svg, opts) {
       say(hiro, 'たいふうモード〜！');
       if (opts.onStorm) opts.onStorm(true);
     },
+    blink: function () { blinkAt = clock; },
     tick: tick
   };
   dressAll(); paintSea(); paintSky(); paintCave(); paintUi();

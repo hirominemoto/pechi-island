@@ -86,7 +86,10 @@ P.STYLE =
   '.shoot{opacity:0;animation:pe-shoot 9s linear infinite}' +
   '.shoot.b{animation-duration:13s;animation-delay:-5s}' +
   '.shoot.c{animation-duration:17s;animation-delay:-12s}' +
-  '.cv-glow{animation:pe-soft 3.2s ease-in-out infinite alternate}' +
+  '.cv-glow.auto{animation:pe-soft 3.2s ease-in-out infinite alternate}' +
+  '.cv-blink.auto{transform-box:fill-box;transform-origin:center;animation:pe-blink 6.5s ease-in-out infinite}' +
+  '.bt{fill:#fffdf4;stroke:#4a3528;stroke-width:.4;stroke-linejoin:round}' +
+  '.bc{fill:none;stroke:#fffdf4;stroke-width:5.4}' +
   '.chr,.pe-btn{cursor:pointer}' +
   '.pe-btn path{fill:none;stroke:#3b2a1c;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}' +
   '.pe-btn:focus-visible circle{stroke:#fffdf4;stroke-width:3.5}' +
@@ -96,9 +99,10 @@ P.STYLE =
   '@keyframes pe-pulse{from{opacity:.25}to{opacity:.95}}' +
   '@keyframes pe-star{from{opacity:.5}to{opacity:1}}' +
   '@keyframes pe-soft{from{opacity:.8}to{opacity:1}}' +
+  '@keyframes pe-blink{0%,84%,100%{transform:scaleY(1)}89%,91%{transform:scaleY(.06)}}' +
   '@keyframes pe-drift{from{transform:translateX(-26px)}to{transform:translateX(26px)}}' +
   '@keyframes pe-shoot{0%{transform:translate(0,0);opacity:0}1.2%{opacity:1}7%{opacity:.9}9%{transform:translate(-78px,44px);opacity:0}100%{transform:translate(-78px,44px);opacity:0}}' +
-  '@media (prefers-reduced-motion:reduce){.surf,.glint,.tw,.drift,.star,.venus,.shoot,.cv-glow,.rain path{animation:none}}';
+  '@media (prefers-reduced-motion:reduce){.surf,.glint,.tw,.drift,.star,.venus,.shoot,.cv-glow.auto,.cv-blink.auto,.rain path{animation:none}}';
 
 function stops(list, offs) {
   return list.map(function (c, i) { return '<stop offset="' + offs[i] + '" stop-color="' + hex(c) + '"/>'; }).join('');
@@ -115,6 +119,7 @@ P.defs = function (T) {
     '<radialGradient id="g-star"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".4" stop-color="#eaf2ff" stop-opacity=".35"/><stop offset="1" stop-color="#eaf2ff" stop-opacity="0"/></radialGradient>' +
     '<linearGradient id="g-shoot" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="26" y2="-14.7"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#bcd8ff" stop-opacity="0"/></linearGradient>' +
     '<radialGradient id="g-glow"><stop offset="0" stop-color="#f4fdff"/><stop offset=".28" stop-color="#aeeaff" stop-opacity=".8"/><stop offset=".62" stop-color="#5ec8ff" stop-opacity=".3"/><stop offset="1" stop-color="#4ab8ff" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="g-eye"><stop offset="0" stop-color="#fff3a0" stop-opacity=".95"/><stop offset=".4" stop-color="#ffd24a" stop-opacity=".45"/><stop offset="1" stop-color="#ffb82e" stop-opacity="0"/></radialGradient>' +
     '<radialGradient id="g-halo"><stop offset="0" stop-color="#fff4cc" stop-opacity=".8"/><stop offset=".55" stop-color="#ffe9a8" stop-opacity=".3"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient>' +
     P.tint(P.symbols(), T.mul, T.lift);
 };
@@ -219,25 +224,42 @@ P.caveState = function (R, sc, T) {
   return { show: true, open: poly(c.open), back: poly(c.back),
     walls: c.walls.map(function (w) { return w.n[0] * R.tx + w.n[1] * R.ty + w.n[2] * R.tz > 0 ? poly(w.v) : ''; }),
     mBack: P.planeMatrix(R, c.glow), mHaze: P.planeMatrix(R, c.haze), mFloor: P.planeMatrix(R, c.floor), mSpill: P.planeMatrix(R, c.spill),
-    pile: P.at(R.sx[c.pile], R.sy[c.pile], .26, .26), amt: P.caveAmt(T) };
+    pile: P.at(R.sx[c.pile], R.sy[c.pile], .26, .26), eyes: P.at(R.sx[c.eyes], R.sy[c.eyes], 1, 1), amt: P.caveAmt(T) };
 };
-P.caveAmt = function (T) { return { glow: Math.round(T.glow * 100) / 100, spill: Math.round(Math.max(0, T.glow - .5) * 130) / 100 }; };
-// 洞窟の中の SVG。奥の壁に青白い光と発光チューブ、床と入口の外にもれる光。st があれば属性も書きこむ
+// 光の強さ。目は夜ほどはっきり光る(eye=目そのもの、halo=まわりのにじみ、haloR=にじみの大きさ)
+P.caveAmt = function (T) {
+  function h(v) { return Math.round(v * 100) / 100; }
+  return { glow: h(T.glow), spill: h(Math.max(0, T.glow - .5) * 1.3), eye: h(.84 + .16 * T.lamp), halo: h(.5 + .5 * T.lamp), haloR: h(2.2 * (1 + .5 * T.lamp)) };
+};
+// 洞窟の中の SVG。奥の右に青白い光と発光チューブ、奥の左の暗がりに「ふたつの目」。
+// st があれば属性も書きこむ。st.auto なら、光のゆらぎとまばたきを CSS だけで動かす(スクリプトなし用)
 P.caveMarkup = function (sc, st) {
   st = st || { walls: [], amt: {} };
   function A(name, v) { return v == null || v === '' ? '' : ' ' + name + '="' + v + '"'; }
+  var a = st.amt, au = st.auto ? ' auto' : '';
   var s = '<clipPath id="pe-cave-clip"><path class="cv-open"' + A('d', st.open) + '/></clipPath><g clip-path="url(#pe-cave-clip)">' +
     '<path class="cv-open" fill="#0a0814"' + A('d', st.open) + '/>';
   sc.cave.walls.forEach(function (w, i) { s += '<path class="cv-w" fill="' + w.css + '"' + A('d', st.walls[i]) + '/>'; });
   return s + '<path class="cv-b" fill="#06050d"' + A('d', st.back) + '/>' +
-    '<g class="cv-amt"' + A('opacity', st.amt.glow) + '>' +
+    '<g class="cv-amt"' + A('opacity', a.glow) + '>' +
       '<g class="cv-mh"' + A('transform', st.mHaze) + '><ellipse cx="95" cy="130" rx="118" ry="128" fill="url(#g-glow)" opacity=".42"/></g>' +
-      '<g class="cv-mf"' + A('transform', st.mFloor) + '><ellipse cx="70" cy="30" rx="66" ry="70" fill="url(#g-glow)" opacity=".6"/></g>' +
-      '<g class="cv-mb"' + A('transform', st.mBack) + '><g class="cv-glow"><ellipse cx="70" cy="98" rx="74" ry="64" fill="url(#g-glow)"/>' +
-        '<g transform="translate(70 112) rotate(28)"><rect x="-4.5" y="-17" width="9" height="34" rx="4.5" fill="#f4feff" stroke="#bdf0ff" stroke-width="1.6"/>' +
+      '<g class="cv-mf"' + A('transform', st.mFloor) + '><ellipse cx="86" cy="30" rx="62" ry="70" fill="url(#g-glow)" opacity=".6"/></g>' +
+      '<g class="cv-mb"' + A('transform', st.mBack) + '><g class="cv-glow' + au + '"><ellipse cx="94" cy="100" rx="66" ry="60" fill="url(#g-glow)"/>' +
+        '<g transform="translate(98 112) rotate(28)"><rect x="-4.5" y="-17" width="9" height="34" rx="4.5" fill="#f4feff" stroke="#bdf0ff" stroke-width="1.6"/>' +
         '<rect x="-1.8" y="-12" width="3.6" height="24" rx="1.8" fill="#fff"/></g></g></g>' +
-    '</g><use class="cv-pile" href="#s-pile"' + A('transform', st.pile) + '/></g>' +
-    '<g class="cv-ms"' + A('transform', st.mSpill) + '><ellipse class="cv-spill" cx="90" cy="30" rx="80" ry="62" fill="url(#g-glow)"' + A('opacity', st.amt.spill) + '/></g>';
+    '</g>' +
+    // 暗がりにひそむ何か: 黒い影と、光るふたつの目(チューブの光に埋もれないよう、光より手前に描く)
+    '<g class="cv-fig"' + A('transform', st.eyes) + '>' +
+      '<path d="M-4.5 0C-4.8-4.4-4-8.1-1.9-9.8-.7-10.7.7-10.7 1.9-9.8 4-8.1 4.8-4.4 4.5 0Z" fill="#05040b" opacity=".92" transform="scale(1.06 .9)"/>' +
+      '<g transform="translate(0 -6.2) scale(1.25)"><g class="cv-blink' + au + '">' +
+        '<g class="cv-halo"' + A('opacity', a.halo) + '><circle class="cv-h" cx="-1.65" cy="0"' + A('r', a.haloR) + ' fill="url(#g-eye)"/><circle class="cv-h" cx="1.65" cy="0"' + A('r', a.haloR) + ' fill="url(#g-eye)"/></g>' +
+        '<g class="cv-eye"' + A('opacity', a.eye) + '>' +
+          '<ellipse cx="-1.65" cy="0" rx="1.02" ry=".78" fill="#ffe46a" transform="rotate(-9 -1.65 0)"/><ellipse cx="1.65" cy="0" rx="1.02" ry=".78" fill="#ffe46a" transform="rotate(9 1.65 0)"/>' +
+          '<ellipse cx="-1.82" cy="-.18" rx=".44" ry=".3" fill="#fffbd6"/><ellipse cx="1.48" cy="-.18" rx=".44" ry=".3" fill="#fffbd6"/>' +
+          '<ellipse cx="-1.65" cy="0" rx=".18" ry=".58" fill="#4a3208"/><ellipse cx="1.65" cy="0" rx=".18" ry=".58" fill="#4a3208"/>' +
+        '</g></g></g></g>' +
+    '<use class="cv-pile" href="#s-pile"' + A('transform', st.pile) + '/></g>' +
+    '<g class="cv-ms"' + A('transform', st.mSpill) + '><ellipse class="cv-spill" cx="90" cy="30" rx="80" ry="62" fill="url(#g-glow)"' + A('opacity', a.spill) + '/></g>';
 };
 
 // world グループ(scale .1)の中に置くときの transform

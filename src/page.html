@@ -138,7 +138,15 @@ button:focus-visible { outline: 3px solid var(--paper); outline-offset: 2px; }
     var sky = Pechi.TIMES[name].sky, st = document.documentElement.style;
     st.setProperty('--sky-top', Pechi.hex(sky[0])); st.setProperty('--sky-mid', Pechi.hex(sky[2])); st.setProperty('--sky-low', Pechi.hex(sky[4]));
   }
-  var P = Pechi, island = P.mount(document.getElementById('pechi'), { time: P.hashTime(), onTime: function (name) {
+  var P = Pechi, island = P.mount(document.getElementById('pechi'), { time: P.hashTime(),
+    // ふきだしがかかってはいけない場所(看板・リンク・ボタン・名札)
+    avoid: function () {
+      var out = [], hint = document.getElementById('hint');
+      ['.sign', '.story', '.times', '.cast', '.ctrl'].forEach(function (sel) { out.push(document.querySelector(sel).getBoundingClientRect()); });
+      if (!hint.hidden && !hint.classList.contains('gone')) out.push(hint.getBoundingClientRect());
+      return out;
+    },
+    onTime: function (name) {
     markTime(name);
     try { history.replaceState(null, '', name === 'day' ? location.pathname + location.search : '#' + name); } catch (e) {}
   }, onStorm: function (on) { document.getElementById('btn-storm').disabled = on; }, onFollow: function (name) {
