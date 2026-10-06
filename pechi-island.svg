@@ -842,10 +842,6 @@ P.skyPos = function (tall, se) {
     shoot: tall ? [[40, -200], [-30, -150], [90, -120]] : [[150, -106], [60, -112], [170, -86]],
     fw: tall ? [[-46, -150], [34, -118], [56, -146]] : [[-64, -94], [42, -88], [96, -98]] };
 };
-// 花火を上げる場所(看板・ボタンをさけた空)。[x, y, 大きさ]
-P.fwSpot = function (tall, rnd) {
-  return tall ? [-80 + rnd() * 160, -165 + rnd() * 52, 1.15 + rnd() * .4] : [-100 + rnd() * 208, -98 + rnd() * 18, .82 + rnd() * .36];
-};
 // 花火の色(外の輪・内の輪)
 P.FW_COLORS = ['#ff8fc0', '#ffd65a', '#5fe3ff', '#9cff7a', '#fff6e0', '#ff9a4a', '#c9a0ff'];
 P.fwColors = function (rnd) {
@@ -1596,13 +1592,43 @@ P.mount = function (svg, opts) {
   }
   function loop(ms) { tick(ms); G.requestAnimationFrame(loop); }
 
+  // 花火を上げる場所: いま見えている空(画面の上のはしから、島の向こうの海のふちまで)の中で、
+  // 看板やボタンと、ほかの花火にかからない所を選ぶ。空がせまい画面では、花火を小さくしておさめる
+  var fwPos = all(sky, '.pe-fwpos'), fwAt = [];
+  function fwPlace(g) {
+    var b = svg.getBoundingClientRect(), w = b.width || 800, h = b.height || 600, v = tall ? P.VIEW.tall : P.VIEW.wide;
+    var px = Math.min(w / v[2], h / v[3]), cx = v[0] + v[2] / 2, cy = v[1] + v[3] / 2, hw = w / 2 / px, top = cy - h / 2 / px;
+    var edge = -P.SEA_R * (R.se == null ? Math.sin(cam.el) : R.se), room = Math.max(0, edge - top);
+    var s = Math.max(.6, Math.min(tall ? 1.15 + Math.random() * .4 : .82 + Math.random() * .36, room / 36)), r = 18 * s;
+    var ui = opts.avoid ? opts.avoid() : [], best = null, k, q;
+    for (k = 0; k < 16; k++) {
+      var x = cx - hw + r + 4 + Math.random() * Math.max(0, 2 * (hw - r - 4)), y0 = top + r + 3;
+      var y = y0 + Math.random() * Math.max(0, edge + r * .2 - y0);
+      // 画面の上で、花火が看板やボタンにかかる面積
+      var X = b.left + w / 2 + (x - cx) * px, Y = b.top + h / 2 + (y - cy) * px, rr = r * px, hit = 0;
+      for (q = 0; q < ui.length; q++) {
+        var ox = Math.min(X + rr, ui[q].right) - Math.max(X - rr, ui[q].left), oy = Math.min(Y + rr, ui[q].bottom) - Math.max(Y - rr, ui[q].top);
+        if (ox > 0 && oy > 0) hit += ox * oy;
+      }
+      for (q = 0; q < fwAt.length; q++) {
+        var o = fwAt[q], gap = (o && o.g !== g) ? (r + o.r) - Math.hypot(x - o.x, y - o.y) : 0;
+        if (gap > 0) hit += gap * gap * px * px;
+      }
+      if (!best || hit < best[3]) best = [x, y, s, hit];
+      if (!hit) break;
+    }
+    g.setAttribute('transform', tr([r1(best[0]), r1(best[1])]) + ' scale(' + r2(best[2]) + ')');
+    fwAt[fwPos.indexOf(g)] = { g: g, x: best[0], y: best[1], r: 18 * best[2] };
+  }
+  function fwPlaceAll() { fwPos.forEach(fwPlace); }
+
   // 流れ星と花火は、1回ごとに場所を変える(花火は色も)
   sky.addEventListener('animationiteration', function (e) {
     var t = e.target, cls = t.getAttribute ? t.getAttribute('class') || '' : '';
     if (/shoot/.test(cls)) t.parentNode.setAttribute('transform', tall ? tr([r1(-90 + Math.random() * 200), r1(-240 + Math.random() * 130)]) : tr([r1(-40 + Math.random() * 210), r1(-113 + Math.random() * 26)]));
     else if (cls === 'fw-fl') {
-      var g = t.parentNode, at = P.fwSpot(tall, Math.random), col = P.fwColors(Math.random);
-      g.parentNode.setAttribute('transform', tr([r1(at[0]), r1(at[1])]) + ' scale(' + r2(at[2]) + ')');
+      var g = t.parentNode, col = P.fwColors(Math.random);
+      fwPlace(g.parentNode);
       g.querySelector('.fw-o').setAttribute('color', col[0]); g.querySelector('.fw-i').setAttribute('color', col[1]);
     }
   });
@@ -1634,7 +1660,7 @@ P.mount = function (svg, opts) {
   svg.addEventListener('pointerup', up);
   svg.addEventListener('pointercancel', up);
   svg.addEventListener('wheel', function (e) { e.preventDefault(); api.zoomBy(Math.exp(-e.deltaY * .0012)); }, { passive: false });
-  G.addEventListener('resize', function () { avoidAt = -9; fit(); });
+  G.addEventListener('resize', function () { avoidAt = -9; fit(); fwPlaceAll(); });
 
   var api = {
     cam: cam, scene: sc, renderer: R,
@@ -1665,7 +1691,7 @@ P.mount = function (svg, opts) {
   };
   dressAll(); paintSea(); paintSky(); paintCave(); paintUi();
   rain.firstChild.setAttribute('opacity', r2(T.veil));
-  fit(); placeSky();
+  fit(); placeSky(); fwPlaceAll();
   tick(0);
   G.requestAnimationFrame(loop);
   return api;
