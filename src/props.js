@@ -181,6 +181,10 @@ function near(aDeg, list) {
 }
 
 P.PIER_A = 95; P.GAZEBO_A = 163;
+// 道の山側のふちに並ぶランタン。20 度ごと(洞窟への小道をさけるよう 4 度ずらす)
+P.LAMP_D = .598;
+P.LAMP_A = [];
+for (var la = 4; la < 360; la += 20) P.LAMP_A.push(la);
 P.HUTS = [58, 76, 114, 132];
 P.FIELDS = [[26, 21], [207, 22], [314, 23]];
 
@@ -239,5 +243,6 @@ P.buildProps = function (sc) {
   });
   // 洞窟は最後に作る(それまでの木や花の並びを変えないため)
   cave(sc, P.CAVE_A);
+  P.LAMP_A.forEach(function (la) { spr(sc, 'lamp', P.LAMP_D, la * DEG, .9, false); });
 };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

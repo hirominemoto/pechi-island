@@ -11,7 +11,7 @@ P.FONT = '"Yusei Magic","Hachi Maru Pop","Hiragino Maru Gothic ProN","BIZ UDPGot
 // ---- 時間帯 --------------------------------------------------------------
 // sky: 空のグラデーション(上→下の5色)。mul/lift: 島の色にかける色味(色×mul+lift)。
 // chr: キャラクター用のひかえめな色味。sun/dusk/night: 太陽・夕日と金星・星空の濃さ。
-// lamp: あかり(小屋の戸口・看板・キャラクターのまわり)。glow: 洞窟の青白い光。veil: 台風の暗さ
+// lamp: あかり(小屋の戸口・看板・道ばたのランタン・キャラクターのまわり)。glow: 洞窟の青白い光。veil: 台風の暗さ
 // cloud: 雲の濃さ(夜は花火がかくれないよう、雲を出さない)
 P.TIMES = {
   day: {
@@ -30,7 +30,7 @@ P.TIMES = {
   },
   night: {
     sky: [[5, 9, 32], [9, 17, 54], [14, 26, 76], [20, 36, 94], [28, 46, 110]],
-    mul: [.36, .46, .62], lift: [4, 8, 20], chr: [.82, .87, 1],
+    mul: [.5, .58, .72], lift: [10, 14, 28], chr: [.88, .92, 1],
     sea: [[34, 82, 130], [18, 48, 100], [10, 28, 72]], wall: [[10, 26, 66], [5, 12, 38]],
     shallow: [[64, 124, 170], [46, 100, 150]], foam: [150, 186, 230],
     sun: 0, dusk: 0, night: 1, lamp: 1, glow: 1, veil: .12, cloud: 0
@@ -138,7 +138,9 @@ P.defs = function (T) {
     '<radialGradient id="g-fw"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".35" stop-color="#fff6dc" stop-opacity=".45"/><stop offset="1" stop-color="#ffe8b0" stop-opacity="0"/></radialGradient>' +
     '<radialGradient id="g-fwglow"><stop offset="0" stop-color="#ffe9c4" stop-opacity=".22"/><stop offset="1" stop-color="#ffe9c4" stop-opacity="0"/></radialGradient>' +
     '<radialGradient id="g-halo"><stop offset="0" stop-color="#fff4cc" stop-opacity=".8"/><stop offset=".55" stop-color="#ffe9a8" stop-opacity=".3"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient>' +
-    P.tint(P.symbols(), T.mul, T.lift);
+    '<radialGradient id="g-pool"><stop offset="0" stop-color="#ffd98a" stop-opacity=".55"/><stop offset=".55" stop-color="#ffcf78" stop-opacity=".2"/><stop offset="1" stop-color="#ffc870" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="g-lamp"><stop offset="0" stop-color="#fff4cc" stop-opacity=".85"/><stop offset=".4" stop-color="#ffd27a" stop-opacity=".28"/><stop offset="1" stop-color="#ffc060" stop-opacity="0"/></radialGradient>' +
+    P.tint(P.symbols(), T.mul, T.lift) + P.lampSymbol(T, T.mul, T.lift);
 };
 
 // 空に置くものの位置。看板(左上)とボタン(右上)をさけて、左の空に置く。西の空=左
