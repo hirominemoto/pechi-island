@@ -9,7 +9,7 @@ P.CAST = [{ name: 'hiro', off: 0, dur: .4, size: 1 }, { name: 'pechi', off: -13,
 P.CLOUDS = [[52, 80, .06, 0, 1.7], [44, 62, -.045, 2.1, 1.3], [60, 90, .05, 4.2, 2]];
 P.MINI = { r: 31, y: 64, w: -.42 };
 
-var BB = { palm: [-17, -42, 17, 3], tree: [-9, -16, 9, 2], tree2: [-7.5, -21, 7.5, 2], pine: [-4.5, -9.5, 4.5, 1.5], pile: [-14, -22, 14, 5] };
+var BB = { palm: [-17, -42, 17, 3], tree: [-9, -16, 9, 2], tree2: [-7.5, -21, 7.5, 2], pine: [-4.5, -9.5, 4.5, 1.5], pile: [-14, -22, 14, 5], lamp: [-9.5, -12, 9.5, 4] };
 var NONE = [1e9, 1e9, -1e9, -1e9];
 
 function f4(v) { return Math.round(v * 1e4) / 1e4; }
@@ -147,7 +147,7 @@ P.renderStatic = function (azDeg, elDeg, time) {
   var mi = P.MINI, sg = mi.w < 0 ? -1 : 1;
   mover('pe-c-mini', orbit(96, function (a) { a *= sg; return [-7 + mi.r * Math.cos(a), mi.y + 5 * Math.sin(3 * a), -9 + mi.r * Math.sin(a)]; }),
     [-6, -9, 6, 5], TAU / Math.abs(mi.w), '<g transform="scale(15)">' + P.tint(P.miniMarkup(), T.chr) + '</g>');
-  P.CLOUDS.forEach(function (c, n) {
+  if (T.cloud > .004) P.CLOUDS.forEach(function (c, n) {
     var dir = c[2] < 0 ? -1 : 1;
     mover('pe-c-cloud' + n, orbit(72, function (a) { a = c[3] + dir * a; return [-7 + c[0] * Math.cos(a), c[1], -9 + c[0] * Math.sin(a)]; }),
       [-10 * c[4], -10 * c[4], 10 * c[4], 0], TAU / Math.abs(c[2]), '<use href="#s-cloud" transform="scale(' + c[4] * 10 + ')"/>');

@@ -11,28 +11,29 @@ P.FONT = '"Yusei Magic","Hachi Maru Pop","Hiragino Maru Gothic ProN","BIZ UDPGot
 // ---- 時間帯 --------------------------------------------------------------
 // sky: 空のグラデーション(上→下の5色)。mul/lift: 島の色にかける色味(色×mul+lift)。
 // chr: キャラクター用のひかえめな色味。sun/dusk/night: 太陽・夕日と金星・星空の濃さ。
-// lamp: あかり(小屋の戸口・看板・キャラクターのまわり)。glow: 洞窟の青白い光。veil: 台風の暗さ
+// lamp: あかり(小屋の戸口・看板・道ばたのランタン・キャラクターのまわり)。glow: 洞窟の青白い光。veil: 台風の暗さ
+// cloud: 雲の濃さ(夜は花火がかくれないよう、雲を出さない)
 P.TIMES = {
   day: {
     sky: [[79, 178, 234], [116, 196, 239], [146, 211, 243], [204, 234, 240], [255, 242, 204]],
     mul: [1, 1, 1], lift: [0, 0, 0], chr: [1, 1, 1],
     sea: [[106, 219, 224], [49, 171, 214], [31, 125, 188]], wall: [[27, 114, 176], [15, 71, 126]],
     shallow: [[185, 244, 242], [143, 230, 234]], foam: [255, 255, 255],
-    sun: 1, dusk: 0, night: 0, lamp: 0, glow: .7, veil: .22
+    sun: 1, dusk: 0, night: 0, lamp: 0, glow: .7, veil: .22, cloud: 1
   },
   dusk: {
     sky: [[36, 42, 108], [112, 72, 142], [246, 142, 96], [186, 108, 136], [86, 64, 122]],
     mul: [1, .76, .62], lift: [8, 0, 16], chr: [1, .93, .86],
     sea: [[250, 178, 132], [166, 110, 162], [64, 68, 138]], wall: [[58, 58, 124], [30, 30, 74]],
     shallow: [[255, 216, 184], [244, 178, 152]], foam: [255, 234, 216],
-    sun: 0, dusk: 1, night: 0, lamp: .45, glow: .85, veil: .2
+    sun: 0, dusk: 1, night: 0, lamp: .45, glow: .85, veil: .2, cloud: 1
   },
   night: {
     sky: [[5, 9, 32], [9, 17, 54], [14, 26, 76], [20, 36, 94], [28, 46, 110]],
-    mul: [.36, .46, .62], lift: [4, 8, 20], chr: [.82, .87, 1],
+    mul: [.5, .58, .72], lift: [10, 14, 28], chr: [.88, .92, 1],
     sea: [[34, 82, 130], [18, 48, 100], [10, 28, 72]], wall: [[10, 26, 66], [5, 12, 38]],
     shallow: [[64, 124, 170], [46, 100, 150]], foam: [150, 186, 230],
-    sun: 0, dusk: 0, night: 1, lamp: 1, glow: 1, veil: .12
+    sun: 0, dusk: 0, night: 1, lamp: 1, glow: 1, veil: .12, cloud: 0
   }
 };
 P.TIME_ORDER = ['day', 'dusk', 'night'];
@@ -87,6 +88,14 @@ P.STYLE =
   '.shoot.b{animation-duration:13s;animation-delay:-5s}' +
   '.shoot.c{animation-duration:17s;animation-delay:-12s}' +
   '.cv-glow.auto{animation:pe-soft 3.2s ease-in-out infinite alternate}' +
+  // 花火: 1回の中で「打ち上げ→はじける→ちらちら消える」。--d が長さ、--l が開始のずれ
+  '.fw{--d:6s;--l:0s}.fw.b{--d:7.4s;--l:-2.6s}.fw.c{--d:9.2s;--l:-5.8s}' +
+  '.fw-rk,.fw-fl,.fw-gl,.fw-s,.fw-d{opacity:0}' +
+  '.fw-rk{fill:none;stroke:#fff3d6;stroke-width:.7;stroke-linecap:round;animation:pe-fw-rk var(--d) var(--l) infinite}' +
+  '.fw-fl{animation:pe-fw-fl var(--d) var(--l) infinite}.fw-gl{animation:pe-fw-gl var(--d) var(--l) infinite}' +
+  '.fw-g{animation:pe-fw-g var(--d) var(--l) infinite}' +
+  '.fw-s{fill:none;stroke:currentColor;stroke-width:.75;stroke-linecap:round;animation:pe-fw-s var(--d) var(--l) infinite}' +
+  '.fw-d{fill:currentColor;animation:pe-fw-d var(--d) var(--l) infinite}' +
   '.cv-blink.auto{transform-box:fill-box;transform-origin:center;animation:pe-blink 6.5s ease-in-out infinite}' +
   '.bt{fill:#fffdf4;stroke:#4a3528;stroke-width:.4;stroke-linejoin:round}' +
   '.bc{fill:none;stroke:#fffdf4;stroke-width:5.4}' +
@@ -101,8 +110,14 @@ P.STYLE =
   '@keyframes pe-soft{from{opacity:.8}to{opacity:1}}' +
   '@keyframes pe-blink{0%,84%,100%{transform:scaleY(1)}89%,91%{transform:scaleY(.06)}}' +
   '@keyframes pe-drift{from{transform:translateX(-26px)}to{transform:translateX(26px)}}' +
+  '@keyframes pe-fw-rk{0%{transform:translateY(48px);opacity:0;animation-timing-function:cubic-bezier(.25,.6,.45,1)}2%{opacity:.95}17%{transform:translateY(0);opacity:.9}18%,100%{transform:translateY(0);opacity:0}}' +
+  '@keyframes pe-fw-fl{0%,17.5%{transform:scale(.2);opacity:0}19%{transform:scale(1);opacity:.9}32%,100%{transform:scale(1.3);opacity:0}}' +
+  '@keyframes pe-fw-gl{0%,17.5%{opacity:0}20%{opacity:.55}46%,100%{opacity:0}}' +
+  '@keyframes pe-fw-g{0%,18%{transform:translateY(0);animation-timing-function:ease-in}62%,100%{transform:translateY(5px)}}' +
+  '@keyframes pe-fw-s{0%,17.5%{transform:translateX(0);opacity:0}18%{transform:translateX(1px);opacity:1;animation-timing-function:cubic-bezier(.15,.7,.35,1)}44%{transform:translateX(16.5px);opacity:.85}58%,100%{transform:translateX(18px);opacity:0}}' +
+  '@keyframes pe-fw-d{0%,17.5%{transform:translateX(0);opacity:0}18%{transform:translateX(.5px);opacity:1;animation-timing-function:cubic-bezier(.15,.7,.35,1)}40%{transform:translateX(9.5px);opacity:1}45%{opacity:.3}48%{opacity:1}51%{opacity:.2}54%{opacity:.9}62%,100%{transform:translateX(10.5px);opacity:0}}' +
   '@keyframes pe-shoot{0%{transform:translate(0,0);opacity:0}1.2%{opacity:1}7%{opacity:.9}9%{transform:translate(-78px,44px);opacity:0}100%{transform:translate(-78px,44px);opacity:0}}' +
-  '@media (prefers-reduced-motion:reduce){.surf,.glint,.tw,.drift,.star,.venus,.shoot,.cv-glow.auto,.cv-blink.auto,.rain path{animation:none}}';
+  '@media (prefers-reduced-motion:reduce){.surf,.glint,.tw,.drift,.star,.venus,.shoot,.cv-glow.auto,.cv-blink.auto,.rain path{animation:none}.fw{display:none}}';
 
 function stops(list, offs) {
   return list.map(function (c, i) { return '<stop offset="' + offs[i] + '" stop-color="' + hex(c) + '"/>'; }).join('');
@@ -120,16 +135,39 @@ P.defs = function (T) {
     '<linearGradient id="g-shoot" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="26" y2="-14.7"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#bcd8ff" stop-opacity="0"/></linearGradient>' +
     '<radialGradient id="g-glow"><stop offset="0" stop-color="#f4fdff"/><stop offset=".28" stop-color="#aeeaff" stop-opacity=".8"/><stop offset=".62" stop-color="#5ec8ff" stop-opacity=".3"/><stop offset="1" stop-color="#4ab8ff" stop-opacity="0"/></radialGradient>' +
     '<radialGradient id="g-eye"><stop offset="0" stop-color="#fff3a0" stop-opacity=".95"/><stop offset=".4" stop-color="#ffd24a" stop-opacity=".45"/><stop offset="1" stop-color="#ffb82e" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="g-fw"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".35" stop-color="#fff6dc" stop-opacity=".45"/><stop offset="1" stop-color="#ffe8b0" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="g-fwglow"><stop offset="0" stop-color="#ffe9c4" stop-opacity=".22"/><stop offset="1" stop-color="#ffe9c4" stop-opacity="0"/></radialGradient>' +
     '<radialGradient id="g-halo"><stop offset="0" stop-color="#fff4cc" stop-opacity=".8"/><stop offset=".55" stop-color="#ffe9a8" stop-opacity=".3"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient>' +
-    P.tint(P.symbols(), T.mul, T.lift);
+    '<radialGradient id="g-pool"><stop offset="0" stop-color="#ffd98a" stop-opacity=".55"/><stop offset=".55" stop-color="#ffcf78" stop-opacity=".2"/><stop offset="1" stop-color="#ffc870" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="g-lamp"><stop offset="0" stop-color="#fff4cc" stop-opacity=".85"/><stop offset=".4" stop-color="#ffd27a" stop-opacity=".28"/><stop offset="1" stop-color="#ffc060" stop-opacity="0"/></radialGradient>' +
+    P.tint(P.symbols(), T.mul, T.lift) + P.lampSymbol(T, T.mul, T.lift);
 };
 
 // 空に置くものの位置。看板(左上)とボタン(右上)をさけて、左の空に置く。西の空=左
 P.skyPos = function (tall, se) {
   var sx = tall ? -92 : -126, rim = -P.SEA_R * se * Math.sqrt(1 - sx * sx / (P.SEA_R * P.SEA_R));
   return { sun: tall ? [-78, -150] : [-92, -98], dusk: [sx, r1(rim + 1)], venus: tall ? [-60, -126] : [-96, -92],
-    shoot: tall ? [[40, -200], [-30, -150], [90, -120]] : [[150, -106], [60, -112], [170, -86]] };
+    shoot: tall ? [[40, -200], [-30, -150], [90, -120]] : [[150, -106], [60, -112], [170, -86]],
+    fw: tall ? [[-46, -150], [34, -118], [56, -146]] : [[-64, -94], [42, -88], [96, -98]] };
 };
+// 花火を上げる場所(看板・ボタンをさけた空)。[x, y, 大きさ]
+P.fwSpot = function (tall, rnd) {
+  return tall ? [-80 + rnd() * 160, -165 + rnd() * 52, 1.15 + rnd() * .4] : [-100 + rnd() * 208, -98 + rnd() * 18, .82 + rnd() * .36];
+};
+// 花火の色(外の輪・内の輪)
+P.FW_COLORS = ['#ff8fc0', '#ffd65a', '#5fe3ff', '#9cff7a', '#fff6e0', '#ff9a4a', '#c9a0ff'];
+P.fwColors = function (rnd) {
+  var n = P.FW_COLORS.length, a = (rnd() * n) | 0, b = (a + 1 + ((rnd() * (n - 1)) | 0)) % n;
+  return [P.FW_COLORS[a], P.FW_COLORS[b]];
+};
+function burst(cls, p, col) {
+  var s = '', k, N = 30, M = 16;
+  for (k = 0; k < N; k++) s += '<g transform="rotate(' + r1(k * 360 / N) + ')"><path class="fw-s" d="M-4 0H0"/></g>';
+  var inner = '';
+  for (k = 0; k < M; k++) inner += '<g transform="rotate(' + r1(k * 360 / M + 11) + ')"><circle class="fw-d" r=".7"/></g>';
+  return '<g class="pe-fwpos" transform="' + tr(p) + '"><g class="fw' + cls + '"><circle class="fw-gl" r="46" fill="url(#g-fwglow)"/><path class="fw-rk" d="M0 0v3.6"/>' +
+    '<circle class="fw-fl" r="9" fill="url(#g-fw)"/><g class="fw-g"><g class="fw-o" color="' + col[0] + '">' + s + '</g><g class="fw-i" color="' + col[1] + '">' + inner + '</g></g></g></g>';
+}
 function tr(p) { return 'translate(' + p[0] + ' ' + p[1] + ')'; }
 
 var STARS = null;
@@ -153,13 +191,13 @@ P.sky = function (T, tall, se, all) {
   function layer(cls, amt, inner) { return all || amt > .004 ? '<g class="' + cls + '" opacity="' + r1(amt) + '"' + (amt > .004 ? '' : ' display="none"') + '>' + inner + '</g>' : ''; }
   s += layer('pe-night', T.night, stars() + ['', ' b', ' c'].map(function (c, i) {
     return '<g class="pe-shootpos" transform="' + tr(p.shoot[i]) + '"><path class="shoot' + c + '" d="M0 0L26-14.7" stroke="url(#g-shoot)" stroke-width="1.1" stroke-linecap="round" fill="none"/></g>';
-  }).join(''));
+  }).join('') + (all ? ['', ' b', ' c'].map(function (c, i) { return burst(c, p.fw[i], [P.FW_COLORS[i * 2], P.FW_COLORS[i * 2 + 1]]); }).join('') : ''));
   s += layer('pe-sun', T.sun, '<g class="pe-sunpos" transform="' + tr(p.sun) + '"><circle r="40" fill="url(#g-sun)"/><circle r="10.5" fill="#fffbe6"/></g>');
   s += layer('pe-dusk', T.dusk, '<g class="pe-duskpos" transform="' + tr(p.dusk) + '"><circle r="120" fill="url(#g-dusk)"/><circle r="19" fill="url(#g-dsun)"/></g>' +
     '<g class="pe-venuspos" transform="' + tr(p.venus) + '"><circle r="10" fill="url(#g-star)"/>' +
     '<path class="venus" d="M0-5.6L.9-.9 5.6 0 .9.9 0 5.6-.9.9-5.6 0-.9-.9Z" fill="#fffbe8"/><circle r="1.3" fill="#fff"/></g>');
-  return s + '<g class="drift"><use href="#s-cloud" transform="translate(150 -72) scale(2.4)"/><use href="#s-cloud" transform="translate(-152 -26) scale(1.8)"/></g>' +
-    '<g class="drift b"><use href="#s-cloud" transform="translate(96 -106) scale(1.5)"/><use href="#s-cloud" transform="translate(-34 -112) scale(1.5)"/></g>';
+  return s + layer('pe-cloud', T.cloud, '<g class="drift"><use href="#s-cloud" transform="translate(150 -72) scale(2.4)"/><use href="#s-cloud" transform="translate(-152 -26) scale(1.8)"/></g>' +
+    '<g class="drift b"><use href="#s-cloud" transform="translate(96 -106) scale(1.5)"/><use href="#s-cloud" transform="translate(-34 -112) scale(1.5)"/></g>');
 };
 P.seaColors = function (T) { return { sh1: hex(T.shallow[0]), sh2: hex(T.shallow[1]), foam: hex(T.foam) }; };
 
@@ -298,6 +336,12 @@ P.LINES = {
   hiro: ['パイナップル〜♪', 'ぜんぶ たべたい！', 'つかまらないよ〜', 'あまい におい！'],
   pechi: ['こら、まちなさい！', 'ひとりじめ 禁止！', 'みんなで わけるんだ', '見回り、異常なし'],
   mira: ['ロボット… チガイマスヨ？', 'パイナップル ケンチ！', 'タイチョウ ハヤイデス', 'ピピッ♪']
+};
+// 夜は、ときどき花火に声をかける
+P.NIGHT_LINES = {
+  hiro: ['たまや〜！', 'はなび きれい〜♪'],
+  pechi: ['かぎや〜！', '夜の見回りも 異常なし'],
+  mira: ['ハナビ ケンチ！', 'キラキラ… キレイデス']
 };
 P.NAMES = { hiro: 'ヒロミーヌ', pechi: 'ペチ隊長', mira: 'ミラ' };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

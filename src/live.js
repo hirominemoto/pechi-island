@@ -31,7 +31,7 @@ P.mount = function (svg, opts) {
   defs.innerHTML = P.defs(T);
   var sky = el('g', {}, svg);
   sky.innerHTML = P.sky(T, false, Math.sin(cam.el), true);
-  var skyL = { sun: sky.querySelector('.pe-sun'), dusk: sky.querySelector('.pe-dusk'), night: sky.querySelector('.pe-night') };
+  var skyL = { sun: sky.querySelector('.pe-sun'), dusk: sky.querySelector('.pe-dusk'), night: sky.querySelector('.pe-night'), cloud: sky.querySelector('.pe-cloud') };
   var skyP = { sun: sky.querySelector('.pe-sunpos'), dusk: sky.querySelector('.pe-duskpos'), venus: sky.querySelector('.pe-venuspos'), shoot: all(sky, '.pe-shootpos') };
   var gSea = el('g', {}, svg);
   var seaWall = el('path', { fill: 'url(#g-wall)' }, gSea);
@@ -114,13 +114,17 @@ P.mount = function (svg, opts) {
     fn = all(ty, '.fn'); orb = all(ty, '.orb');
     mini.el.innerHTML = P.tint(P.miniMarkup(), T.chr);
   }
-  function paintSky() {       // 太陽・夕日と金星・星空の濃さ。台風のあいだは雲にかくれる
+  function paintSky() {       // 太陽・夕日と金星・星空の濃さ。台風のあいだは雲にかくれる。夜は雲を出さない
     var k = storm ? .3 : 1, n, v;
     for (n in skyL) {
-      v = T[n] * k;
+      v = n === 'cloud' ? T.cloud : T[n] * k;
       skyL[n].setAttribute('opacity', r2(v));
       if (v > .004) skyL[n].removeAttribute('display'); else skyL[n].setAttribute('display', 'none');
     }
+    clouds.forEach(function (c) {         // 山のまわりを回る雲も
+      c.el.setAttribute('opacity', r2(T.cloud));
+      if (T.cloud > .004) c.el.removeAttribute('display'); else c.el.setAttribute('display', 'none');
+    });
   }
   function placeSky() {       // 夕日は海のふちに半分しずめる
     var p = P.skyPos(tall, R.se == null ? Math.sin(cam.el) : R.se);
@@ -235,7 +239,8 @@ P.mount = function (svg, opts) {
   // ふきだし
   function say(a, text) {
     if (a.bub) { over.removeChild(a.bub.el); a.bub = null; }
-    var lines = P.LINES[a.name], n = 0, k;
+    var lines = P.LINES[a.name], night = P.NIGHT_LINES[a.name], n = 0, k;
+    if (!text && timeName === 'night' && !storm && Math.random() < .35) text = night[(Math.random() * night.length) | 0];
     text = text || lines[a.line++ % lines.length];
     for (k = 0; k < text.length; k++) n += text.charCodeAt(k) < 128 ? .5 : 1;
     var w = Math.round(n * 40 + 56), g = el('g', { 'class': 'bub', opacity: 0 }, over), tail = el('path', { 'class': 'bt' }, g), body = el('g', {}, g);
@@ -381,11 +386,15 @@ P.mount = function (svg, opts) {
   }
   function loop(ms) { tick(ms); G.requestAnimationFrame(loop); }
 
-  // 流れ星は、流れるたびに場所を変える
+  // 流れ星と花火は、1回ごとに場所を変える(花火は色も)
   sky.addEventListener('animationiteration', function (e) {
-    var t = e.target;
-    if (!t.getAttribute || !/shoot/.test(t.getAttribute('class') || '')) return;
-    t.parentNode.setAttribute('transform', tall ? tr([r1(-90 + Math.random() * 200), r1(-240 + Math.random() * 130)]) : tr([r1(-40 + Math.random() * 210), r1(-113 + Math.random() * 26)]));
+    var t = e.target, cls = t.getAttribute ? t.getAttribute('class') || '' : '';
+    if (/shoot/.test(cls)) t.parentNode.setAttribute('transform', tall ? tr([r1(-90 + Math.random() * 200), r1(-240 + Math.random() * 130)]) : tr([r1(-40 + Math.random() * 210), r1(-113 + Math.random() * 26)]));
+    else if (cls === 'fw-fl') {
+      var g = t.parentNode, at = P.fwSpot(tall, Math.random), col = P.fwColors(Math.random);
+      g.parentNode.setAttribute('transform', tr([r1(at[0]), r1(at[1])]) + ' scale(' + r2(at[2]) + ')');
+      g.querySelector('.fw-o').setAttribute('color', col[0]); g.querySelector('.fw-i').setAttribute('color', col[1]);
+    }
   });
 
   // ドラッグで回す・ホイールやピンチで拡大

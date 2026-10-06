@@ -114,13 +114,21 @@ function buildTerrain(sc) {
     }
   }
   var cj = Math.floor(P.CAVE_A / 360 * SECT);
+  // 道(帯8)と山側の草地(帯7)は、近くのランタンに照らされる。ランタンのある面がいちばん明るい
+  function lampLit(b, j) {
+    if (b !== 7 && b !== 8) return 0;
+    var c = (j + .5) / SECT * 360, best = 180;
+    (P.LAMP_A || []).forEach(function (a) { best = Math.min(best, Math.abs(((c - a) % 360 + 540) % 360 - 180)); });
+    var k = best < 180 / SECT ? .42 : best < 540 / SECT ? .16 : 0;
+    return b === 7 ? k * .75 : k;
+  }
   var idx = sc.vi = function (kk, jj) { return kk === 0 ? 0 : 1 + (kk - 1) * SECT + ((jj % SECT) + SECT) % SECT; };
   for (b = 0; b < RING.length - 1; b++) {
     for (j = 0; j < SECT; j++) {
       var m = BAND[b];
       var col = function () { return (m.mix && R() < m.p) ? m.mix : m.c; };
       var A = idx(b, j), B = idx(b, j + 1), C = idx(b + 1, j + 1), D = idx(b + 1, j);
-      var o = { up: true, cull: true, vary: b === 8 ? .03 : .09 }, cc = col();
+      var o = { up: true, cull: true, vary: b === 8 ? .03 : .09, lit: lampLit(b, j) }, cc = col();
       if ((b === 6 || b === 7) && j === cj) { cc = BAND[8].c; o.vary = .03; }      // 道から洞窟へ入る小道
       else if (b === 6 && (j === cj - 1 || j === cj + 1)) cc = [200, 188, 138];
       if (b === 0) sc.poly([A, D, C], cc, o);

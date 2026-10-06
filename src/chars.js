@@ -49,6 +49,17 @@ P.symbols = function () {
   '<g id="s-cloud"><path d="M-9 0a4 4 0 0 1 1.6-7.6A6 6 0 0 1 3.4-9.8 5 5 0 0 1 10-4.6 3.4 3.4 0 0 1 9 0Z" fill="#fff" opacity=".9"/></g>';
 };
 
+// 道ばたのランタン。柱と笠は島と同じ色味に、灯り(足もとの光・ほのかな光の輪)は T.lamp の濃さで重ねる
+P.lampSymbol = function (T, mul, lift) {
+  var k = Math.round(T.lamp * 100) / 100, on = k > .004;
+  var base = P.tint('<ellipse cx=".5" cy="0" rx="1.7" ry=".6" fill="#16301c" opacity=".22"/>' +
+    '<path d="M0 0V-6.4" stroke="#6e4628" stroke-width=".75" stroke-linecap="round"/>' +
+    '<rect x="-1.1" y="-8.8" width="2.2" height="2.7" rx=".7" fill="#f1dca8" stroke="#8a5a2e" stroke-width=".3"/>' +
+    '<path d="M-1.6-8.7L0-10.1 1.6-8.7Z" fill="#7a4f2c"/>', mul, lift);
+  return '<g id="s-lamp">' + (on ? '<ellipse cx="0" cy="-.3" rx="9.5" ry="4" fill="url(#g-pool)" opacity="' + k + '"/>' : '') + base +
+    (on ? '<rect x="-.85" y="-8.5" width="1.7" height="2.1" rx=".5" fill="#ffe7a6" opacity="' + k + '"/><circle cx="0" cy="-7.4" r="4.6" fill="url(#g-lamp)" opacity="' + Math.round(k * 85) / 100 + '"/>' : '') + '</g>';
+};
+
 var SKIN = '#ffdfc4', INK = '#2b2430';
 var SHADOW = '<ellipse cx="0" cy="0" rx="4.8" ry="1.6" fill="#16301c" opacity=".26"/>';
 
