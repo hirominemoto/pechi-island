@@ -1729,11 +1729,11 @@ P.mount = function (svg, opts) {
   function loop(ms) { tick(ms); G.requestAnimationFrame(loop); }
 
   // 花火を上げる場所: いま見えている空(画面の上のはしから、島の向こうの海のふちまで)の中で、
-  // 看板やボタンと、ほかの花火にかからない所を選ぶ。空がせまい画面では、花火を小さくしておさめる
+  // 看板やボタンと、ほかの花火にかからない所を選ぶ。空がせまい画面では、花火を小さくしておさめる。
+  // 拡大や名札で追いかけている間は、そのとき見えている範囲で選ぶ(fit() が決めた view を使う)
   var fwPos = all(sky, '.pe-fwpos'), fwAt = [];
   function fwPlace(g) {
-    var b = svg.getBoundingClientRect(), w = b.width || 800, h = b.height || 600, v = tall ? P.VIEW.tall : P.VIEW.wide;
-    var px = Math.min(w / v[2], h / v[3]), cx = v[0] + v[2] / 2, cy = v[1] + v[3] / 2, hw = w / 2 / px, top = cy - h / 2 / px;
+    var V = view, w = V.w, h = V.h, px = V.px, cx = V.cx, cy = V.cy, hw = w / 2 / px, top = cy - h / 2 / px;
     // 海のふち(空と海の境目)。島の真上がいちばん高く、左右へいくほど低い
     var edge = -P.SEA_R * (R.se == null ? Math.sin(cam.el) : R.se);
     function rim(x) { var u = x / P.SEA_R; return Math.min(edge + 25, u * u < 1 ? edge * Math.sqrt(1 - u * u) : Infinity); }
@@ -1744,7 +1744,7 @@ P.mount = function (svg, opts) {
       var x = cx - hw + r + 4 + Math.random() * Math.max(0, 2 * (hw - r - 4)), y0 = top + r + 3, y1 = rim(x) - .6 * r;
       var y = y1 > y0 ? y0 + Math.random() * (y1 - y0) : y0;
       // 画面の上で、花火が看板やボタンにかかる面積
-      var X = b.left + w / 2 + (x - cx) * px, Y = b.top + h / 2 + (y - cy) * px, rr = r * px, hit = y1 > y0 ? 0 : (y0 - y1) * rr * px * 4;   // 空がせまくて海にかくれすぎる所はさける
+      var X = V.l + w / 2 + (x - cx) * px, Y = V.t + h / 2 + (y - cy) * px, rr = r * px, hit = y1 > y0 ? 0 : (y0 - y1) * rr * px * 4;   // 空がせまくて海にかくれすぎる所はさける
       for (q = 0; q < ui.length; q++) {
         var ox = Math.min(X + rr, ui[q].right) - Math.max(X - rr, ui[q].left), oy = Math.min(Y + rr, ui[q].bottom) - Math.max(Y - rr, ui[q].top);
         if (ox > 0 && oy > 0) hit += ox * oy;
@@ -1804,11 +1804,11 @@ P.mount = function (svg, opts) {
   var api = {
     cam: cam, scene: sc, renderer: R,
     setAuto: function (on) { cam.auto = !!on; holdUntil = 0; },
-    zoomBy: function (f) { cam.follow = null; cam.cx = cam.cy = null; cam.zoom = Math.max(.6, Math.min(3.6, cam.zoom * f)); fit(); if (opts.onFollow) opts.onFollow(null); },
+    zoomBy: function (f) { cam.follow = null; cam.cx = cam.cy = null; cam.zoom = Math.max(.6, Math.min(3.6, cam.zoom * f)); fit(); fwPlaceAll(); if (opts.onFollow) opts.onFollow(null); },
     follow: function (name) {
       cam.follow = null;
       actors.forEach(function (a) { if (a.name === name) cam.follow = a; });
-      if (cam.follow) { if (cam.cx == null) { cam.cx = 0; cam.cy = 0; } say(cam.follow); } else { cam.cx = cam.cy = null; cam.zoom = 1; fit(); }
+      if (cam.follow) { if (cam.cx == null) { cam.cx = 0; cam.cy = 0; } say(cam.follow); } else { cam.cx = cam.cy = null; cam.zoom = 1; fit(); fwPlaceAll(); }
       if (opts.onFollow) opts.onFollow(cam.follow ? name : null);
     },
     say: function (name) { actors.forEach(function (a) { if (a.name === name) say(a); }); },
