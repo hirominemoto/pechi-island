@@ -157,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--paper); outline-offset: 2px; }
     var b = document.createElement('button');
     b.type = 'button';
     b.id = 'cast-' + name;
-    b.innerHTML = '<svg viewBox="-7.5 -24 15 15" aria-hidden="true">' + P.charMarkup(name, false) + '</svg><span>' + P.NAMES[name] + '</span>';
+    b.innerHTML = '<svg viewBox="' + P.PORTRAIT_VIEW + '" aria-hidden="true">' + P.portrait(name) + '</svg><span>' + P.NAMES[name] + '</span>';
     b.setAttribute('aria-pressed', 'false');
     b.title = P.NAMES[name] + 'を追いかける';
     b.addEventListener('click', function () { island.follow(b.getAttribute('aria-pressed') === 'true' ? null : name); });
