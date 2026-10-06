@@ -12,27 +12,28 @@ P.FONT = '"Yusei Magic","Hachi Maru Pop","Hiragino Maru Gothic ProN","BIZ UDPGot
 // sky: 空のグラデーション(上→下の5色)。mul/lift: 島の色にかける色味(色×mul+lift)。
 // chr: キャラクター用のひかえめな色味。sun/dusk/night: 太陽・夕日と金星・星空の濃さ。
 // lamp: あかり(小屋の戸口・看板・キャラクターのまわり)。glow: 洞窟の青白い光。veil: 台風の暗さ
+// cloud: 雲の濃さ(夜は花火がかくれないよう、雲を出さない)
 P.TIMES = {
   day: {
     sky: [[79, 178, 234], [116, 196, 239], [146, 211, 243], [204, 234, 240], [255, 242, 204]],
     mul: [1, 1, 1], lift: [0, 0, 0], chr: [1, 1, 1],
     sea: [[106, 219, 224], [49, 171, 214], [31, 125, 188]], wall: [[27, 114, 176], [15, 71, 126]],
     shallow: [[185, 244, 242], [143, 230, 234]], foam: [255, 255, 255],
-    sun: 1, dusk: 0, night: 0, lamp: 0, glow: .7, veil: .22
+    sun: 1, dusk: 0, night: 0, lamp: 0, glow: .7, veil: .22, cloud: 1
   },
   dusk: {
     sky: [[36, 42, 108], [112, 72, 142], [246, 142, 96], [186, 108, 136], [86, 64, 122]],
     mul: [1, .76, .62], lift: [8, 0, 16], chr: [1, .93, .86],
     sea: [[250, 178, 132], [166, 110, 162], [64, 68, 138]], wall: [[58, 58, 124], [30, 30, 74]],
     shallow: [[255, 216, 184], [244, 178, 152]], foam: [255, 234, 216],
-    sun: 0, dusk: 1, night: 0, lamp: .45, glow: .85, veil: .2
+    sun: 0, dusk: 1, night: 0, lamp: .45, glow: .85, veil: .2, cloud: 1
   },
   night: {
     sky: [[5, 9, 32], [9, 17, 54], [14, 26, 76], [20, 36, 94], [28, 46, 110]],
     mul: [.36, .46, .62], lift: [4, 8, 20], chr: [.82, .87, 1],
     sea: [[34, 82, 130], [18, 48, 100], [10, 28, 72]], wall: [[10, 26, 66], [5, 12, 38]],
     shallow: [[64, 124, 170], [46, 100, 150]], foam: [150, 186, 230],
-    sun: 0, dusk: 0, night: 1, lamp: 1, glow: 1, veil: .12
+    sun: 0, dusk: 0, night: 1, lamp: 1, glow: 1, veil: .12, cloud: 0
   }
 };
 P.TIME_ORDER = ['day', 'dusk', 'night'];
@@ -71,7 +72,6 @@ P.STYLE =
   '.ol{stroke:#4a3528;stroke-width:.45;stroke-linejoin:round;stroke-linecap:round}' +
   '.olr{stroke:#6f7a90;stroke-width:.4;stroke-linejoin:round}' +
   '.s{fill:currentColor;stroke:currentColor;stroke-width:5.5;stroke-linejoin:round}' +
-  '.pf{fill:currentColor;stroke:currentColor;stroke-width:2.2;stroke-linejoin:round}.pd{fill:currentColor;stroke:currentColor;stroke-width:.8;stroke-linejoin:round}' +
   '.hand{font-family:' + P.FONT + '}' +
   '.bb{fill:#fffdf4;stroke:#4a3528;stroke-width:4;stroke-linejoin:round}' +
   '.bub{transition:opacity .35s}' +
@@ -194,8 +194,8 @@ P.sky = function (T, tall, se, all) {
   s += layer('pe-dusk', T.dusk, '<g class="pe-duskpos" transform="' + tr(p.dusk) + '"><circle r="120" fill="url(#g-dusk)"/><circle r="19" fill="url(#g-dsun)"/></g>' +
     '<g class="pe-venuspos" transform="' + tr(p.venus) + '"><circle r="10" fill="url(#g-star)"/>' +
     '<path class="venus" d="M0-5.6L.9-.9 5.6 0 .9.9 0 5.6-.9.9-5.6 0-.9-.9Z" fill="#fffbe8"/><circle r="1.3" fill="#fff"/></g>');
-  return s + '<g class="drift"><use href="#s-cloud" transform="translate(150 -72) scale(2.4)"/><use href="#s-cloud" transform="translate(-152 -26) scale(1.8)"/></g>' +
-    '<g class="drift b"><use href="#s-cloud" transform="translate(96 -106) scale(1.5)"/><use href="#s-cloud" transform="translate(-34 -112) scale(1.5)"/></g>';
+  return s + layer('pe-cloud', T.cloud, '<g class="drift"><use href="#s-cloud" transform="translate(150 -72) scale(2.4)"/><use href="#s-cloud" transform="translate(-152 -26) scale(1.8)"/></g>' +
+    '<g class="drift b"><use href="#s-cloud" transform="translate(96 -106) scale(1.5)"/><use href="#s-cloud" transform="translate(-34 -112) scale(1.5)"/></g>');
 };
 P.seaColors = function (T) { return { sh1: hex(T.shallow[0]), sh2: hex(T.shallow[1]), foam: hex(T.foam) }; };
 

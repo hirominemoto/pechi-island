@@ -31,7 +31,7 @@ P.mount = function (svg, opts) {
   defs.innerHTML = P.defs(T);
   var sky = el('g', {}, svg);
   sky.innerHTML = P.sky(T, false, Math.sin(cam.el), true);
-  var skyL = { sun: sky.querySelector('.pe-sun'), dusk: sky.querySelector('.pe-dusk'), night: sky.querySelector('.pe-night') };
+  var skyL = { sun: sky.querySelector('.pe-sun'), dusk: sky.querySelector('.pe-dusk'), night: sky.querySelector('.pe-night'), cloud: sky.querySelector('.pe-cloud') };
   var skyP = { sun: sky.querySelector('.pe-sunpos'), dusk: sky.querySelector('.pe-duskpos'), venus: sky.querySelector('.pe-venuspos'), shoot: all(sky, '.pe-shootpos') };
   var gSea = el('g', {}, svg);
   var seaWall = el('path', { fill: 'url(#g-wall)' }, gSea);
@@ -64,46 +64,19 @@ P.mount = function (svg, opts) {
     fig: caveT.el.querySelector('.cv-fig'), blink: caveT.el.querySelector('.cv-blink'), halo: caveT.el.querySelector('.cv-halo'),
     hs: all(caveT.el, '.cv-h'), eye: caveT.el.querySelector('.cv-eye') };
   things.push(caveT);
-  // 登場人物はポリゴンの立体。毎コマ、歩く向きとカメラに合わせて面を描きなおす
-  function figure(e, name) {
-    var f = { fig: P.fig(name), body: el('g', { transform: 'scale(.1)' }, e), pool: [], used: 0 }, n = P.figSize(f.fig);
-    while (f.pool.length < n) f.pool.push(el('path', {}, f.body));
-    return f;
-  }
-  // 上下のゆれ(bob)はグループごと動かす。手足以外の面は、カメラか向きが変わったときだけ書きかわる
-  // 向きは少しだけ丸めて、止まっている部品の面を書きかえずにすむようにする
-  function drawFig(f, pose) {
-    var bob = r2(-(pose.bob || 0) * R.ce), k = 0, i, j, q, e, cl;
-    if (f._bob !== bob) { f.body.setAttribute('transform', 'translate(0 ' + bob + ') scale(.1)'); f._bob = bob; }
-    var fr = P.figFrame(f.fig, R, { yaw: Math.round(pose.yaw / .006) * .006, sw: pose.sw, spin: pose.spin, wob: pose.wob, chr: T.chr });
-    for (i = 0; i < fr.length; i++) for (j = 0; j < fr[i].list.length; j++) {
-      q = fr[i].list[j]; e = f.pool[k++]; cl = q.dec ? 'pd' : 'pf';
-      if (e._d !== q.d) { e.setAttribute('d', q.d); e._d = q.d; }
-      if (e._c !== q.c) { e.setAttribute('color', q.c); e._c = q.c; }
-      if (e._k !== cl) { e.setAttribute('class', cl); e._k = cl; }
-    }
-    for (i = k; i < f.used; i++) { f.pool[i].setAttribute('d', ''); f.pool[i]._d = ''; }
-    f.used = k;
-  }
   var actors = P.CAST.map(function (cst) {
     var e = el('g', { 'class': 'chr' }, world);
-    var a = { kind: 2, name: cst.name, el: e, key: 0, rank: 0, off: cst.off * DEG, dur: cst.dur, size: cst.size, line: 0, bub: null, x: 0, y: 0,
-      halo: el('circle', { cx: 0, cy: -11, r: 20, fill: 'url(#g-halo)', opacity: 0 }, e),     // halo: 夜でも見えるように、まわりをほんのり照らす
-      shadow: el('ellipse', { cx: 0, cy: 0, rx: 4.8, ry: 1.6, fill: '#16301c', opacity: .26 }, e) };
-    a.fig = figure(e, cst.name);
+    var a = { kind: 2, name: cst.name, el: e, key: 0, rank: 0, off: cst.off * DEG, dur: cst.dur, size: cst.size,
+      isBack: false, flip: false, line: 0, bub: null, x: 0, y: 0, limbs: [], bobs: [],
+      halo: el('circle', { cx: 0, cy: -11, r: 20, fill: 'url(#g-halo)', opacity: 0 }, e), body: el('g', {}, e) };   // halo: 夜でも見えるように、まわりをほんのり照らす
     el('title', {}, e).textContent = P.NAMES[cst.name];
     e.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); say(a); });
     things.push(a);
     return a;
   });
   // 台風モード: ヒロミーヌがうずまきになって島を一周多く走る
-  // まわりを回るパイナップルは、奥にあるときは渦のうしろへ
-  var hiro = actors[0], ty = el('g', { display: 'none' }, hiro.el), storm = null;
-  var tyShadow = el('ellipse', { cx: 0, cy: 0, rx: 6.5, ry: 2.1, fill: '#16301c', opacity: .26 }, ty);
-  var orbBack = el('g', {}, ty), tyFig = figure(ty, 'typhoon'), orbFront = el('g', {}, ty);
-  var orb = [0, 1].map(function () { return el('use', { href: '#s-pine' }, orbFront); });
+  var hiro = actors[0], ty = el('g', { display: 'none' }, hiro.el), storm = null, fn = [], orb = [];
   var mini = { kind: 3, el: el('g', {}, world), key: 0, rank: 0 };
-  mini.fig = figure(mini.el, 'mini');
   things.push(mini);
   var clouds = P.CLOUDS.map(function (c) {
     var t = { kind: 3, c: c, el: el('use', { href: '#s-cloud' }, world), key: 0, rank: 0 };
@@ -124,17 +97,34 @@ P.mount = function (svg, opts) {
   }
 
   // ---- 時間帯の色を塗る ------------------------------------------------
-  // いまの時間帯の色味で描きなおす(キャラクターの色は毎コマ T.chr をかけて塗る)
-  function dressAll() {
-    actors.forEach(function (a) { a.halo.setAttribute('opacity', r2(T.lamp * .62)); });
+  // キャラクターを、いまの時間帯の色味で描きなおす
+  function dress(a) {
+    a.body.innerHTML = P.tint(P.charMarkup(a.name, false), T.chr);
+    a.front = a.body.querySelector('.front'); a.back = a.body.querySelector('.back');
+    a.limbs = all(a.body, '.lb').map(function (l) { return { el: l, p: l.getAttribute('data-p'), a: +l.getAttribute('data-a') }; });
+    a.bobs = all(a.body, '.bob');
+    var hide = storm && a === hiro;
+    a.front.setAttribute('display', hide || a.isBack ? 'none' : 'inline');
+    a.back.setAttribute('display', hide || !a.isBack ? 'none' : 'inline');
+    a.halo.setAttribute('opacity', r2(T.lamp * .62));
   }
-  function paintSky() {       // 太陽・夕日と金星・星空の濃さ。台風のあいだは雲にかくれる
+  function dressAll() {
+    actors.forEach(dress);
+    ty.innerHTML = P.tint(P.typhoonMarkup(), T.chr);
+    fn = all(ty, '.fn'); orb = all(ty, '.orb');
+    mini.el.innerHTML = P.tint(P.miniMarkup(), T.chr);
+  }
+  function paintSky() {       // 太陽・夕日と金星・星空の濃さ。台風のあいだは雲にかくれる。夜は雲を出さない
     var k = storm ? .3 : 1, n, v;
     for (n in skyL) {
-      v = T[n] * k;
+      v = n === 'cloud' ? T.cloud : T[n] * k;
       skyL[n].setAttribute('opacity', r2(v));
       if (v > .004) skyL[n].removeAttribute('display'); else skyL[n].setAttribute('display', 'none');
     }
+    clouds.forEach(function (c) {         // 山のまわりを回る雲も
+      c.el.setAttribute('opacity', r2(T.cloud));
+      if (T.cloud > .004) c.el.removeAttribute('display'); else c.el.setAttribute('display', 'none');
+    });
   }
   function placeSky() {       // 夕日は海のふちに半分しずめる
     var p = P.skyPos(tall, R.se == null ? Math.sin(cam.el) : R.se);
@@ -309,7 +299,7 @@ P.mount = function (svg, opts) {
   function stormEnd() {
     storm = null;
     ty.setAttribute('display', 'none'); rain.setAttribute('display', 'none');
-    hiro.fig.body.removeAttribute('display'); hiro.shadow.removeAttribute('display');
+    hiro.front.setAttribute('display', hiro.isBack ? 'none' : 'inline'); hiro.back.setAttribute('display', hiro.isBack ? 'inline' : 'none');
     paintSky();
     if (opts.onStorm) opts.onStorm(false);
   }
@@ -327,37 +317,35 @@ P.mount = function (svg, opts) {
         if (u >= 1) stormEnd();
         else {
           ang += TAU * (.5 - .5 * Math.cos(Math.PI * u));
-          for (var w = 0; w < orb.length; w++) {
-            var oa = clock * 7 + w * Math.PI, side = Math.sin(oa) > 0 ? orbFront : orbBack;
-            orb[w].setAttribute('transform', 'translate(' + r1(10.5 * Math.cos(oa)) + ' ' + r1(-9 + 3 * Math.sin(oa)) + ') scale(.8)');
-            if (orb[w].parentNode !== side) side.appendChild(orb[w]);
-          }
+          for (var w = 0; w < fn.length; w++) fn[w].setAttribute('cx', r1(1.3 * Math.sin(clock * 11 + w * .9)));
+          for (w = 0; w < orb.length; w++) orb[w].setAttribute('transform', 'translate(' + r1(10.5 * Math.cos(clock * 7 + w * Math.PI)) + ' ' + r1(-9 + 3 * Math.sin(clock * 7 + w * Math.PI)) + ') scale(.8)');
           if (storm.step === 0 && u > .14) { storm.step = 1; say(actors[1], 'こらー！ とまりなさい！'); }
           if (storm.step === 1 && u > .42) { storm.step = 2; say(actors[2], 'ヒナン シマス…'); }
         }
       }
       var p = sc.walk(ang), q = sc.walk(ang + .03), s = R.xy(p.x, p.y, p.z);
-      var wx = q.x - p.x, wz = q.z - p.z, len = Math.hypot(wx, wz) || 1;
-      // 歩く向きを向きつつ、顔が見えるように少しだけカメラのほうへふりむく
-      var yaw = Math.atan2(wx / len + .55 * R.sa, wz / len + .55 * R.ca), sw = Math.sin(clock * TAU / a.dur);
+      var dx = (q.x - p.x) * R.ca - (q.z - p.z) * R.sa, dz = (q.x - p.x) * R.sa + (q.z - p.z) * R.ca, len = Math.hypot(dx, dz) || 1;
+      dx /= len; dz /= len;
+      if (a.isBack ? dz > -.2 : dz < -.38) {
+        a.isBack = !a.isBack;
+        if (!(k === 0 && storm)) { a.front.setAttribute('display', a.isBack ? 'none' : 'inline'); a.back.setAttribute('display', a.isBack ? 'inline' : 'none'); }
+      }
+      if (a.flip ? dx > .12 : dx < -.12) a.flip = !a.flip;
+      var sw = Math.sin(clock * TAU / a.dur);
       a.x = s[0]; a.y = s[1];
-      a.el.setAttribute('transform', P.at(s[0], s[1], a.size, a.size));
+      a.el.setAttribute('transform', P.at(s[0], s[1], a.flip ? -a.size : a.size, a.size));
       a.key = s[2] + 5;
-      a.shadow.setAttribute('ry', r2(4.8 * R.se));
-      if (k === 0 && storm) {
-        tyShadow.setAttribute('ry', r2(6.5 * R.se));
-        drawFig(tyFig, { yaw: Math.atan2(R.sa, R.ca), spin: clock * 9, wob: [0, 1, 2, 3, 4].map(function (w) { return 1.3 * Math.sin(clock * 11 + w * .9); }) });
-      } else drawFig(a.fig, { yaw: yaw, sw: sw, bob: Math.abs(sw) * .9 });
+      for (var j = 0; j < a.limbs.length; j++) a.limbs[j].el.setAttribute('transform', 'rotate(' + r1(a.limbs[j].a * sw) + ' ' + a.limbs[j].p + ')');
+      for (j = 0; j < a.bobs.length; j++) a.bobs[j].setAttribute('transform', 'translate(0 ' + r1(-Math.abs(sw) * 1.1) + ')');
       if (a.bub) {
         if (clock > a.bub.until + .4) { over.removeChild(a.bub.el); a.bub = null; }
         else bubblePlace(a.bub, s[0], s[1] - 25 * a.size, clock > a.bub.until);
       }
     }
     // ミラmini は山のまわりを飛ぶ
-    var th0 = clock * P.MINI.w, m = R.xy(-7 + P.MINI.r * Math.cos(th0), P.MINI.y + 5 * Math.sin(3 * th0), -9 + P.MINI.r * Math.sin(th0)), mw = P.MINI.w < 0 ? -1 : 1;
+    var th0 = clock * P.MINI.w, m = R.xy(-7 + P.MINI.r * Math.cos(th0), P.MINI.y + 5 * Math.sin(3 * th0), -9 + P.MINI.r * Math.sin(th0));
     mini.el.setAttribute('transform', P.at(m[0], m[1], 1.5, 1.5, r1(7 * Math.sin(clock * 2.1))));
     mini.key = m[2];
-    drawFig(mini.fig, { yaw: Math.atan2(-Math.sin(th0) * mw + 2.2 * R.sa, Math.cos(th0) * mw + 2.2 * R.ca), spin: clock * 29 });   // 飛ぶ向きを向きつつ、こちらを見る
     for (k = 0; k < clouds.length; k++) {
       th = clouds[k];
       var ca = th.c[3] + clock * th.c[2], c = R.xy(-7 + th.c[0] * Math.cos(ca), th.c[1], -9 + th.c[0] * Math.sin(ca));
@@ -456,7 +444,7 @@ P.mount = function (svg, opts) {
     storm: function () {
       if (storm) return;
       storm = { t0: clock, dur: 9, step: 0 };
-      hiro.fig.body.setAttribute('display', 'none'); hiro.shadow.setAttribute('display', 'none');
+      hiro.front.setAttribute('display', 'none'); hiro.back.setAttribute('display', 'none');
       ty.setAttribute('display', 'inline'); rain.setAttribute('display', 'inline');
       paintSky();
       say(hiro, 'たいふうモード〜！');

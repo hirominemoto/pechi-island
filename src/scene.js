@@ -45,7 +45,7 @@ var BAND = [
 ];
 P.TRAIL_D = 0.65;
 P.CAVE_A = 93.75;      // 洞窟の向き(度)。桟橋からまっすぐ山のふもとへ
-var LIGHT = P.LIGHT = norm([-0.55, 0.72, 0.42]);
+var LIGHT = norm([-0.55, 0.72, 0.42]);
 
 // 海岸線の形(角度ごとの半径)
 P.outline = function (a) {

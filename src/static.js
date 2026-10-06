@@ -103,7 +103,8 @@ P.renderStatic = function (azDeg, elDeg, time) {
   var flipRuns = runs(S.flip, '-1 1', '1 1'), frontRuns = runs(S.back, 'none', 'inline'), backRuns = runs(S.back, 'inline', 'none');
   var cast = P.CAST.map(function (c, n) {
     var begin = f4(-c.off / 360 * P.LOOP - P.LOOP), i0 = Math.floor((((-begin / P.LOOP) % 1) + 1) % 1 * N), TG = timing(P.LOOP, begin);
-    var parts = P.figSprites(c.name, R, c.dur, T.chr), line = P.LINES[c.name], t0 = .06 + n * .16;
+    var parts = P.charParts(c.name, true), line = P.LINES[c.name], t0 = .06 + n * .16;
+    parts.f = P.tint(parts.f, T.chr); parts.b = P.tint(parts.b, T.chr);
     function bub(text, a) {
       return '<g display="none"><animate attributeName="display" calcMode="discrete" ' + TG + ' keyTimes="0;' + f4(a) + ';' + f4(a + .075) + '" values="none;inline;none"/>' +
         '<g transform="translate(0 -25)">' + P.bubble(text) + '</g></g>';
@@ -145,8 +146,8 @@ P.renderStatic = function (azDeg, elDeg, time) {
   }
   var mi = P.MINI, sg = mi.w < 0 ? -1 : 1;
   mover('pe-c-mini', orbit(96, function (a) { a *= sg; return [-7 + mi.r * Math.cos(a), mi.y + 5 * Math.sin(3 * a), -9 + mi.r * Math.sin(a)]; }),
-    [-6, -9, 6, 5], TAU / Math.abs(mi.w), '<g transform="scale(15)">' + P.figMarkup('mini', R, azDeg * DEG + .5, true, 1, T.chr) + '</g>');
-  P.CLOUDS.forEach(function (c, n) {
+    [-6, -9, 6, 5], TAU / Math.abs(mi.w), '<g transform="scale(15)">' + P.tint(P.miniMarkup(), T.chr) + '</g>');
+  if (T.cloud > .004) P.CLOUDS.forEach(function (c, n) {
     var dir = c[2] < 0 ? -1 : 1;
     mover('pe-c-cloud' + n, orbit(72, function (a) { a = c[3] + dir * a; return [-7 + c[0] * Math.cos(a), c[1], -9 + c[0] * Math.sin(a)]; }),
       [-10 * c[4], -10 * c[4], 10 * c[4], 0], TAU / Math.abs(c[2]), '<use href="#s-cloud" transform="scale(' + c[4] * 10 + ')"/>');

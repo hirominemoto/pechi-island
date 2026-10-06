@@ -11,7 +11,7 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 const read = f => fs.readFileSync(path.join(dir, 'src', f), 'utf8');
 const require = createRequire(import.meta.url);
 
-const parts = ['scene.js', 'props.js', 'chars.js', 'figures.js', 'markup.js', 'static.js', 'live.js'].filter(f => fs.existsSync(path.join(dir, 'src', f)));
+const parts = ['scene.js', 'props.js', 'chars.js', 'markup.js', 'static.js', 'live.js'].filter(f => fs.existsSync(path.join(dir, 'src', f)));
 const code = parts.map(read).join('\n');
 if (code.includes(']]>')) throw new Error('code must not contain ]]>');
 
