@@ -161,6 +161,7 @@ P.mount = function (svg, opts) {
     if (!P.TIMES[name]) return;
     var from = T, changed = name !== timeName;
     timeName = name;
+    if (changed && name === 'night') fwPlaceAll();     // 昼のあいだ花火は止まっていて置きなおされないので、夜になるときに置く
     if (instant || reduce || !changed) { fade = null; T = P.TIMES[name]; paintTime(true); }
     else fade = { from: from, t0: clock, dur: 1.4, n: 0 };
     paintUi();
@@ -386,13 +387,47 @@ P.mount = function (svg, opts) {
   }
   function loop(ms) { tick(ms); G.requestAnimationFrame(loop); }
 
+  // 花火を上げる場所: いま見えている空(画面の上のはしから、島の向こうの海のふちまで)の中で、
+  // 看板やボタンと、ほかの花火にかからない所を選ぶ。空がせまい画面では、花火を小さくしておさめる。
+  // 拡大や名札で追いかけている間は、そのとき見えている範囲で選ぶ(fit() が決めた view を使う)
+  var fwPos = all(sky, '.pe-fwpos'), fwAt = [];
+  function fwPlace(g) {
+    var V = view, w = V.w, h = V.h, px = V.px, cx = V.cx, cy = V.cy, hw = w / 2 / px, top = cy - h / 2 / px;
+    // 海のふち(空と海の境目)。島の真上がいちばん高く、左右へいくほど低い
+    var edge = -P.SEA_R * (R.se == null ? Math.sin(cam.el) : R.se);
+    function rim(x) { var u = x / P.SEA_R; return Math.min(edge + 25, u * u < 1 ? edge * Math.sqrt(1 - u * u) : Infinity); }
+    // 花火の下のはしが、海のふちから半径の4割までしか下へはみ出さない大きさにする
+    var s = Math.max(.45, Math.min(tall ? 1.15 + Math.random() * .4 : .82 + Math.random() * .36, (edge - top - 3) / (18 * 1.6))), r = 18 * s;
+    var ui = opts.avoid ? opts.avoid() : [], best = null, k, q;
+    for (k = 0; k < 20; k++) {
+      if (k >= 8 && s > .45) { s = Math.max(.45, s * .88); r = 18 * s; }      // 空いている所がせまいときは、少しずつ小さくして探す
+      var x = cx - hw + r + 4 + Math.random() * Math.max(0, 2 * (hw - r - 4)), y0 = top + r + 3, y1 = rim(x) - .6 * r;
+      var y = y1 > y0 ? y0 + Math.random() * (y1 - y0) : y0;
+      // 画面の上で、花火が看板やボタンにかかる面積
+      var X = V.l + w / 2 + (x - cx) * px, Y = V.t + h / 2 + (y - cy) * px, rr = r * px, hit = y1 > y0 ? 0 : (y0 - y1) * rr * px * 4;   // 空がせまくて海にかくれすぎる所はさける
+      for (q = 0; q < ui.length; q++) {
+        var ox = Math.min(X + rr, ui[q].right) - Math.max(X - rr, ui[q].left), oy = Math.min(Y + rr, ui[q].bottom) - Math.max(Y - rr, ui[q].top);
+        if (ox > 0 && oy > 0) hit += ox * oy;
+      }
+      for (q = 0; q < fwAt.length; q++) {
+        var o = fwAt[q], gap = (o && o.g !== g) ? (r + o.r) - Math.hypot(x - o.x, y - o.y) : 0;
+        if (gap > 0) hit += gap * gap * px * px;
+      }
+      if (!best || hit < best[3]) best = [x, y, s, hit];
+      if (!hit) break;
+    }
+    g.setAttribute('transform', tr([r1(best[0]), r1(best[1])]) + ' scale(' + r2(best[2]) + ')');
+    fwAt[fwPos.indexOf(g)] = { g: g, x: best[0], y: best[1], r: 18 * best[2] };
+  }
+  function fwPlaceAll() { fwPos.forEach(fwPlace); }
+
   // 流れ星と花火は、1回ごとに場所を変える(花火は色も)
   sky.addEventListener('animationiteration', function (e) {
     var t = e.target, cls = t.getAttribute ? t.getAttribute('class') || '' : '';
     if (/shoot/.test(cls)) t.parentNode.setAttribute('transform', tall ? tr([r1(-90 + Math.random() * 200), r1(-240 + Math.random() * 130)]) : tr([r1(-40 + Math.random() * 210), r1(-113 + Math.random() * 26)]));
     else if (cls === 'fw-fl') {
-      var g = t.parentNode, at = P.fwSpot(tall, Math.random), col = P.fwColors(Math.random);
-      g.parentNode.setAttribute('transform', tr([r1(at[0]), r1(at[1])]) + ' scale(' + r2(at[2]) + ')');
+      var g = t.parentNode, col = P.fwColors(Math.random);
+      fwPlace(g.parentNode);
       g.querySelector('.fw-o').setAttribute('color', col[0]); g.querySelector('.fw-i').setAttribute('color', col[1]);
     }
   });
@@ -424,16 +459,16 @@ P.mount = function (svg, opts) {
   svg.addEventListener('pointerup', up);
   svg.addEventListener('pointercancel', up);
   svg.addEventListener('wheel', function (e) { e.preventDefault(); api.zoomBy(Math.exp(-e.deltaY * .0012)); }, { passive: false });
-  G.addEventListener('resize', function () { avoidAt = -9; fit(); });
+  G.addEventListener('resize', function () { avoidAt = -9; fit(); fwPlaceAll(); });
 
   var api = {
     cam: cam, scene: sc, renderer: R,
     setAuto: function (on) { cam.auto = !!on; holdUntil = 0; },
-    zoomBy: function (f) { cam.follow = null; cam.cx = cam.cy = null; cam.zoom = Math.max(.6, Math.min(3.6, cam.zoom * f)); fit(); if (opts.onFollow) opts.onFollow(null); },
+    zoomBy: function (f) { cam.follow = null; cam.cx = cam.cy = null; cam.zoom = Math.max(.6, Math.min(3.6, cam.zoom * f)); fit(); fwPlaceAll(); if (opts.onFollow) opts.onFollow(null); },
     follow: function (name) {
       cam.follow = null;
       actors.forEach(function (a) { if (a.name === name) cam.follow = a; });
-      if (cam.follow) { if (cam.cx == null) { cam.cx = 0; cam.cy = 0; } say(cam.follow); } else { cam.cx = cam.cy = null; cam.zoom = 1; fit(); }
+      if (cam.follow) { if (cam.cx == null) { cam.cx = 0; cam.cy = 0; } say(cam.follow); } else { cam.cx = cam.cy = null; cam.zoom = 1; fit(); fwPlaceAll(); }
       if (opts.onFollow) opts.onFollow(cam.follow ? name : null);
     },
     say: function (name) { actors.forEach(function (a) { if (a.name === name) say(a); }); },
@@ -456,6 +491,7 @@ P.mount = function (svg, opts) {
   dressAll(); paintSea(); paintSky(); paintCave(); paintUi();
   rain.firstChild.setAttribute('opacity', r2(T.veil));
   fit(); placeSky();
+  G.requestAnimationFrame(fwPlaceAll);     // 花火は、ページが名札やボタンを並べ終えてから置く(最初の描画の前)
   tick(0);
   G.requestAnimationFrame(loop);
   return api;
